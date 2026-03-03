@@ -31,6 +31,8 @@
 
 #include "gpu-compute/compute_unit.hh"
 
+#include <cerrno>
+#include <cstdlib>
 #include <limits>
 
 #include "arch/amdgpu/common/gpu_translation_state.hh"
@@ -47,6 +49,7 @@
 #include "debug/GPUSync.hh"
 #include "debug/GPUTLB.hh"
 #include "debug/GPUTrace.hh"
+#include "debug/CRISPdvfs.hh"
 #include "enums/GfxVersion.hh"
 #include "gpu-compute/dispatcher.hh"
 #include "gpu-compute/gpu_command_processor.hh"
@@ -374,6 +377,40 @@ ComputeUnit::ComputeUnit(const Params &p)
 
     // Used for periodic pipeline prints
     execCycles = 0;
+    {
+        const std::string &eval = p.evaluation_period;
+        fatal_if(eval.size() < 3,
+                 "Invalid evaluation_period (expected <num><unit>): %s",
+                 eval);
+
+        std::string unit = eval.substr(eval.size() - 2);
+        std::string num_str = eval.substr(0, eval.size() - 2);
+
+        char *endptr = nullptr;
+        errno = 0;
+        uint64_t value = std::strtoull(num_str.c_str(), &endptr, 10);
+        fatal_if(errno != 0 || endptr == num_str.c_str() || *endptr != '\0',
+                 "Invalid evaluation_period numeric value: %s", eval);
+
+        uint64_t duration_ns = 0;
+        if (unit == "ms") {
+            duration_ns = value * 1000000ULL;
+        } else if (unit == "us") {
+            duration_ns = value * 1000ULL;
+        } else if (unit == "ns") {
+            duration_ns = value;
+        } else {
+            fatal("Invalid evaluation_period unit (use ms/us/ns): %s", eval);
+        }
+
+        crispWindowDurationCycles =
+            (duration_ns * 1000ULL) / clockPeriod();
+    }
+    tMemory = 0;
+    tStallLCP = 0;
+    crisp_Ts.resize(p.global_mem_queue_size, 0);
+    crisp_tick.resize(p.global_mem_queue_size, 0);
+    crisp_isLoad.resize(p.global_mem_queue_size, false);
 }
 
 ComputeUnit::~ComputeUnit()
@@ -990,6 +1027,25 @@ ComputeUnit::init()
     globalMemoryPipe.init();
 
     gmTokenPort.setTokenManager(memPortTokens);
+}
+
+void
+ComputeUnit::crispWindowEval(Tick curTick)
+{
+    uint64_t T_overlapped_compute = tMemory - tStallLCP;
+    uint64_t T_pure_compute = crispWindowDurationCycles - tMemory;
+
+    DPRINTF(CRISPdvfs, "CRISP Window: "
+            "tick=%llu "
+            "TMemory=%llu "
+            "TStall_LCP=%llu "
+            "T_overlapped_compute=%llu "
+            "T_pure_compute=%llu\n",
+            (unsigned long long)curTick,
+            (unsigned long long)tMemory,
+            (unsigned long long)tStallLCP,
+            (unsigned long long)T_overlapped_compute,
+            (unsigned long long)T_pure_compute);
 }
 
 bool

@@ -999,6 +999,15 @@ class ComputeUnit : public ClockedObject
     InstSeqNum globalSeqNum;
     int wavefrontSize;
     uint64_t execCycles;
+    uint64_t crispWindowDurationCycles;
+    // CRISP DVFS counters
+    uint64_t tMemory;       // Load critical path
+    uint64_t tStallLCP;     // Load stall cycles
+
+    // Per-entry MSHR tracking (sized to global_mem_queue_size)
+    std::vector<uint64_t> crisp_Ts;      // TMemory at miss time
+    std::vector<uint64_t> crisp_tick;    // Cycle tick at miss time
+    std::vector<bool> crisp_isLoad;      // Load vs store flag
 
     /**
      * TODO: Update these comments once the pipe stage interface has
@@ -1051,6 +1060,7 @@ class ComputeUnit : public ClockedObject
 
   public:
     void updateInstStats(GPUDynInstPtr gpuDynInst);
+    void crispWindowEval(Tick curTick);
     int activeWaves;
 
     struct ComputeUnitStats : public statistics::Group

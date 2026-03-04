@@ -408,6 +408,8 @@ ComputeUnit::ComputeUnit(const Params &p)
     }
     tMemory = 0;
     tStallLCP = 0;
+    crispThreshold = 0.5f;
+    crispCycleCount = 0;
     crisp_Ts.resize(p.global_mem_queue_size, 0);
     crisp_tick.resize(p.global_mem_queue_size, 0);
     crisp_isLoad.resize(p.global_mem_queue_size, false);
@@ -957,6 +959,9 @@ ComputeUnit::exec()
     scalarMemoryPipe.exec();
     globalMemoryPipe.exec();
     localMemoryPipe.exec();
+
+    crispLabelCycle();
+
     execStage.exec();
     scheduleStage.exec();
     scoreboardCheckStage.exec();
@@ -1046,6 +1051,54 @@ ComputeUnit::crispWindowEval(Tick curTick)
             (unsigned long long)tStallLCP,
             (unsigned long long)T_overlapped_compute,
             (unsigned long long)T_pure_compute);
+}
+
+void
+ComputeUnit::crispLabelCycle()
+{
+    // CRISP cycle labeling
+    bool compute_issued = false;
+    bool vmcnt_stall_exists = false;
+
+    // Check compute utilization
+    int compute_units_issued = 0;
+    int total_compute_units = firstMemUnit();
+    for (int unitId = 0; unitId < firstMemUnit(); unitId++) {
+        if (scheduleToExecute.dispatchStatus(unitId)
+            == EXREADY) {
+            compute_units_issued++;
+        }
+    }
+    float compute_utilization =
+        (float)compute_units_issued / total_compute_units;
+    compute_issued = (compute_utilization >= crispThreshold);
+
+    // Check vmcnt stall across all active wavefronts
+    for (int i = 0; i < numVectorALUs; i++) {
+        for (int j = 0; j < shader->n_wf; j++) {
+            Wavefront *wf = wfList[i][j];
+            if (wf->getStatus() != Wavefront::S_STOPPED) {
+                if (wf->isVmemWaitcntStalled()) {
+                    vmcnt_stall_exists = true;
+                    break;
+                }
+            }
+        }
+        if (vmcnt_stall_exists) break;
+    }
+
+    // Label the cycle
+    if (!compute_issued && vmcnt_stall_exists) {
+        tMemory++;
+        tStallLCP++;
+    }
+
+    // Window evaluation
+    crispCycleCount++;
+    if (crispCycleCount >= crispWindowDurationCycles) {
+        crispWindowEval(curTick());
+        crispCycleCount = 0;
+    }
 }
 
 bool

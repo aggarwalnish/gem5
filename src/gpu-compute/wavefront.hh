@@ -280,6 +280,7 @@ class Wavefront : public SimObject
     bool waitCntsSatisfied();
     void setWaitCnts(int vm_wait_cnt, int exp_wait_cnt, int lgkm_wait_cnt);
     void clearWaitCnts();
+    bool isVmemWaitcntStalled() const;
 
     void incVMemInstsIssued();
     void incExpInstsIssued();

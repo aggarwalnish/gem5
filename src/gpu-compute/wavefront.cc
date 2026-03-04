@@ -1430,6 +1430,14 @@ Wavefront::clearWaitCnts()
     status = S_RUNNING;
 }
 
+bool
+Wavefront::isVmemWaitcntStalled() const
+{
+    return status == S_WAITCNT &&
+           vmWaitCnt != -1 &&
+           vmemInstsIssued > vmWaitCnt;
+}
+
 void
 Wavefront::incVMemInstsIssued()
 {

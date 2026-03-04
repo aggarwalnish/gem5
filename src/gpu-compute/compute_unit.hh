@@ -1003,6 +1003,8 @@ class ComputeUnit : public ClockedObject
     // CRISP DVFS counters
     uint64_t tMemory;       // Load critical path
     uint64_t tStallLCP;     // Load stall cycles
+    float crispThreshold;
+    uint64_t crispCycleCount;
 
     // Per-entry MSHR tracking (sized to global_mem_queue_size)
     std::vector<uint64_t> crisp_Ts;      // TMemory at miss time
@@ -1061,6 +1063,7 @@ class ComputeUnit : public ClockedObject
   public:
     void updateInstStats(GPUDynInstPtr gpuDynInst);
     void crispWindowEval(Tick curTick);
+    void crispLabelCycle();
     int activeWaves;
 
     struct ComputeUnitStats : public statistics::Group

@@ -402,12 +402,14 @@ class GPUCoalescer : public RubyPort
                      bool mshrHitUnderMiss);
 
     void recordStats(CoalescedRequest* crequest,
-                           MachineType mach,
-                           Cycles initialRequestTime,
-                           Cycles forwardRequestTime,
-                           Cycles firstResponseTime,
-                           bool isRegion,
-                           bool mshrHitUnderMiss);
+                     MachineType mach,
+                     Cycles initialRequestTime,
+                     Cycles forwardRequestTime,
+                     Cycles firstResponseTime,
+                     bool isRegion,
+                     bool mshrHitUnderMiss);
+
+    void crispMissDetected(Addr addr);
 
     void completeHitCallback(std::vector<PacketPtr> & mylist);
 

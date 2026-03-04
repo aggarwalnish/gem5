@@ -41,6 +41,7 @@
 #include "debug/RubyHitMiss.hh"
 #include "debug/RubyPort.hh"
 #include "debug/RubyStats.hh"
+#include "gpu-compute/compute_unit.hh"
 #include "gpu-compute/shader.hh"
 #include "mem/packet.hh"
 #include "mem/ruby/common/DataBlock.hh"
@@ -524,6 +525,17 @@ GPUCoalescer::readCallback(Addr address,
                         bool isRegion,
                         bool externalHit = false)
 {
+    if (!m_usingRubyTester) {
+        auto it = coalescedTable.find(address);
+        if (it != coalescedTable.end() && !it->second.empty()) {
+            PacketPtr pkt = it->second.front()->getFirstPkt();
+            GPUDynInstPtr inst = getDynInst(pkt);
+            if (inst && inst->computeUnit()) {
+                inst->computeUnit()->crispRecordReturn(address);
+            }
+        }
+    }
+
     assert(address == makeLineAddress(address));
     assert(coalescedTable.count(address));
 
@@ -563,6 +575,26 @@ GPUCoalescer::readCallback(Addr address,
     } else {
         auto nextRequest = coalescedTable.at(address).front();
         issueRequest(nextRequest);
+    }
+}
+
+void
+GPUCoalescer::crispMissDetected(Addr addr)
+{
+    if (m_usingRubyTester) {
+        return;
+    }
+
+    Addr line_addr = makeLineAddress(addr);
+    auto it = coalescedTable.find(line_addr);
+    if (it == coalescedTable.end() || it->second.empty()) {
+        return;
+    }
+
+    PacketPtr pkt = it->second.front()->getFirstPkt();
+    GPUDynInstPtr inst = getDynInst(pkt);
+    if (inst && inst->computeUnit()) {
+        inst->computeUnit()->crispRecordMiss(line_addr);
     }
 }
 

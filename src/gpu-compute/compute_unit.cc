@@ -31,6 +31,7 @@
 
 #include "gpu-compute/compute_unit.hh"
 
+#include <algorithm>
 #include <cerrno>
 #include <cstdlib>
 #include <limits>
@@ -410,9 +411,6 @@ ComputeUnit::ComputeUnit(const Params &p)
     tStallLCP = 0;
     crispThreshold = 0.5f;
     crispCycleCount = 0;
-    crisp_Ts.resize(p.global_mem_queue_size, 0);
-    crisp_tick.resize(p.global_mem_queue_size, 0);
-    crisp_isLoad.resize(p.global_mem_queue_size, false);
 }
 
 ComputeUnit::~ComputeUnit()
@@ -1037,6 +1035,14 @@ ComputeUnit::init()
 void
 ComputeUnit::crispWindowEval(Tick curTick)
 {
+    for (auto &entry : crispTick) {
+        Addr lineAddr = entry.first;
+        uint64_t elapsed = (curTick - entry.second) / clockPeriod();
+        tMemory = std::max(tMemory, crispTs[lineAddr] + elapsed);
+        entry.second = curTick;
+        crispTs[lineAddr] = 0;
+    }
+
     uint64_t T_overlapped_compute = tMemory - tStallLCP;
     uint64_t T_pure_compute = crispWindowDurationCycles - tMemory;
 
@@ -1051,6 +1057,28 @@ ComputeUnit::crispWindowEval(Tick curTick)
             (unsigned long long)tStallLCP,
             (unsigned long long)T_overlapped_compute,
             (unsigned long long)T_pure_compute);
+}
+
+void
+ComputeUnit::crispRecordMiss(Addr addr)
+{
+    Addr lineAddr = crispLineAddr(addr);
+    crispTick[lineAddr] = curTick();
+    crispTs[lineAddr] = tMemory;
+}
+
+void
+ComputeUnit::crispRecordReturn(Addr addr)
+{
+    Addr lineAddr = crispLineAddr(addr);
+    if (!crispTick.count(lineAddr)) {
+        return;
+    }
+    uint64_t latency_cycles =
+        (curTick() - crispTick[lineAddr]) / clockPeriod();
+    tMemory = std::max(tMemory, crispTs[lineAddr] + latency_cycles);
+    crispTick.erase(lineAddr);
+    crispTs.erase(lineAddr);
 }
 
 void

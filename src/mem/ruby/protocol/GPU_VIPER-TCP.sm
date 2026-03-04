@@ -357,6 +357,11 @@ machine(MachineType:TCP, "GPU TCP (L1 Data Cache)")
   }
 
   action(n_issueRdBlk, "n", desc="Issue RdBlk") {
+    if (use_seq_not_coal) {
+      sequencer.crispMissDetected(address);
+    } else {
+      coalescer.crispMissDetected(address);
+    }
     enqueue(requestNetwork_out, CPURequestMsg, issue_latency) {
       out_msg.addr := address;
       out_msg.Type := CoherenceRequestType:RdBlk;

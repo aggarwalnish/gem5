@@ -49,6 +49,7 @@
 #include "debug/RubyHitMiss.hh"
 #include "debug/RubySequencer.hh"
 #include "debug/RubyStats.hh"
+#include "gpu-compute/compute_unit.hh"
 #include "mem/packet.hh"
 #include "mem/ruby/profiler/Profiler.hh"
 #include "mem/ruby/protocol/PrefetchBit.hh"
@@ -639,6 +640,45 @@ Sequencer::readCallback(Addr address, DataBlock& data,
 }
 
 void
+Sequencer::crispMissDetected(Addr addr)
+{
+    Addr line_addr = makeLineAddress(addr);
+    auto it = m_RequestTable.find(line_addr);
+    if (it == m_RequestTable.end() || it->second.empty()) {
+        return;
+    }
+
+    PacketPtr pkt = it->second.front().pkt;
+    if (!pkt || !pkt->senderState) {
+        return;
+    }
+
+    RubyPort::SenderState *ss =
+        safe_cast<RubyPort::SenderState *>(pkt->senderState);
+    Packet::SenderState *pred = ss->predecessor;
+    if (!pred) {
+        return;
+    }
+
+    if (auto *sqc_ss =
+            dynamic_cast<ComputeUnit::SQCPort::SenderState *>(pred)) {
+        if (sqc_ss->wavefront && sqc_ss->wavefront->computeUnit) {
+            sqc_ss->wavefront->computeUnit->crispRecordMiss(line_addr);
+        }
+        return;
+    }
+
+    if (auto *scalar_ss =
+            dynamic_cast<ComputeUnit::ScalarDataPort::SenderState *>(pred)) {
+        if (scalar_ss->_gpuDynInst &&
+            scalar_ss->_gpuDynInst->computeUnit()) {
+            scalar_ss->_gpuDynInst->computeUnit()->crispRecordMiss(line_addr);
+        }
+        return;
+    }
+}
+
+void
 Sequencer::atomicCallback(Addr address, DataBlock& data,
                          const bool externalHit, const MachineType mach,
                          const Cycles initialRequestTime,
@@ -710,6 +750,32 @@ Sequencer::hitCallback(SequencerRequest* srequest, DataBlock& data,
     PacketPtr pkt = srequest->pkt;
     Addr request_address(pkt->getAddr());
     RubyRequestType type = srequest->m_type;
+
+    if (type == RubyRequestType_LD || type == RubyRequestType_IFETCH) {
+        if (pkt && pkt->senderState) {
+            RubyPort::SenderState *ss =
+                safe_cast<RubyPort::SenderState *>(pkt->senderState);
+            Packet::SenderState *pred = ss->predecessor;
+            if (pred) {
+                if (auto *sqc_ss =
+                        dynamic_cast<ComputeUnit::SQCPort::SenderState *>(
+                            pred)) {
+                    if (sqc_ss->wavefront && sqc_ss->wavefront->computeUnit) {
+                        sqc_ss->wavefront->computeUnit->crispRecordReturn(
+                            request_address);
+                    }
+                } else if (auto *scalar_ss =
+                        dynamic_cast<ComputeUnit::ScalarDataPort::SenderState *>(
+                            pred)) {
+                    if (scalar_ss->_gpuDynInst &&
+                        scalar_ss->_gpuDynInst->computeUnit()) {
+                        scalar_ss->_gpuDynInst->computeUnit()->crispRecordReturn(
+                            request_address);
+                    }
+                }
+            }
+        }
+    }
 
     if (was_coalesced) {
         // Notify the controller about a coalesced request so it can properly

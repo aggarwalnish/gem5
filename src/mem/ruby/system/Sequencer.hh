@@ -234,6 +234,8 @@ class Sequencer : public RubyPort
                            Cycles forwardRequestTime,
                            Cycles firstResponseTime);
 
+    void crispMissDetected(Addr addr);
+
   private:
     // Private copy constructor and assignment operator
     Sequencer(const Sequencer& obj);

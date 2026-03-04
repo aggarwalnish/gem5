@@ -34,6 +34,7 @@
 
 #include <deque>
 #include <map>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -999,6 +1000,11 @@ class ComputeUnit : public ClockedObject
     InstSeqNum globalSeqNum;
     int wavefrontSize;
     uint64_t execCycles;
+    Addr
+    crispLineAddr(Addr addr) const
+    {
+        return addr & ~(_cacheLineSize - 1);
+    }
     uint64_t crispWindowDurationCycles;
     // CRISP DVFS counters
     uint64_t tMemory;       // Load critical path
@@ -1006,10 +1012,9 @@ class ComputeUnit : public ClockedObject
     float crispThreshold;
     uint64_t crispCycleCount;
 
-    // Per-entry MSHR tracking (sized to global_mem_queue_size)
-    std::vector<uint64_t> crisp_Ts;      // TMemory at miss time
-    std::vector<uint64_t> crisp_tick;    // Cycle tick at miss time
-    std::vector<bool> crisp_isLoad;      // Load vs store flag
+    // Per-address miss tracking
+    std::unordered_map<Addr, uint64_t> crispTs;
+    std::unordered_map<Addr, uint64_t> crispTick;
 
     /**
      * TODO: Update these comments once the pipe stage interface has
@@ -1064,6 +1069,8 @@ class ComputeUnit : public ClockedObject
     void updateInstStats(GPUDynInstPtr gpuDynInst);
     void crispWindowEval(Tick curTick);
     void crispLabelCycle();
+    void crispRecordMiss(Addr addr);
+    void crispRecordReturn(Addr addr);
     int activeWaves;
 
     struct ComputeUnitStats : public statistics::Group

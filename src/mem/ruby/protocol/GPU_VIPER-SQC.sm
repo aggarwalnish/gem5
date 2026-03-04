@@ -265,6 +265,7 @@ machine(MachineType:SQC, "GPU SQC (L1 I Cache)")
   }
 
   action(nS_issueRdBlkS, "nS", desc="Issue RdBlkS") {
+    sequencer.crispMissDetected(address);
     enqueue(requestNetwork_out, CPURequestMsg, issue_latency) {
       out_msg.addr := address;
       out_msg.Type := CoherenceRequestType:RdBlk;

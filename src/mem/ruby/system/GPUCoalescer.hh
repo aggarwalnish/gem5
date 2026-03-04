@@ -311,6 +311,8 @@ class GPUCoalescer : public RubyPort
                       bool isRegion,
                       bool externalHit);
 
+    void crispMissDetected(Addr addr);
+    
     /* atomics need their own callback because the data
        might be const coming from SLICC */
     virtual void atomicCallback(Addr address,
@@ -408,8 +410,6 @@ class GPUCoalescer : public RubyPort
                      Cycles firstResponseTime,
                      bool isRegion,
                      bool mshrHitUnderMiss);
-
-    void crispMissDetected(Addr addr);
 
     void completeHitCallback(std::vector<PacketPtr> & mylist);
 

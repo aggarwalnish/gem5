@@ -125,6 +125,8 @@ class Sequencer : public RubyPort
                       const Cycles forwardRequestTime = Cycles(0),
                       const Cycles firstResponseTime = Cycles(0));
 
+    void crispMissDetected(Addr addr);
+
     void atomicCallback(Addr address,
                         DataBlock& data,
                         const bool externalHit = false,
@@ -233,8 +235,6 @@ class Sequencer : public RubyPort
                            bool isExternalHit, Cycles initialRequestTime,
                            Cycles forwardRequestTime,
                            Cycles firstResponseTime);
-
-    void crispMissDetected(Addr addr);
 
   private:
     // Private copy constructor and assignment operator

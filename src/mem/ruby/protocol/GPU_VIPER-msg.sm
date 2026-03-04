@@ -65,4 +65,5 @@ structure (VIPERCoalescer, external = "yes") {
   void invTCCCallback(Addr);
   void writeCompleteCallback(Addr, uint64_t);
   void evictionCallback(Addr);
+  void crispMissDetected(Addr);
 }

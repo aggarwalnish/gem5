@@ -50,6 +50,8 @@
 #include "debug/RubySequencer.hh"
 #include "debug/RubyStats.hh"
 #include "gpu-compute/compute_unit.hh"
+#include "gpu-compute/gpu_dyn_inst.hh"
+#include "gpu-compute/wavefront.hh"
 #include "mem/packet.hh"
 #include "mem/ruby/profiler/Profiler.hh"
 #include "mem/ruby/protocol/PrefetchBit.hh"

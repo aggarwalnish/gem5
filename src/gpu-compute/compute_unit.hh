@@ -1009,7 +1009,9 @@ class ComputeUnit : public ClockedObject
     // CRISP DVFS counters
     uint64_t tMemory;       // Load critical path
     uint64_t tStallLCP;     // Load stall cycles
+    uint64_t tIdle;
     float crispThreshold;
+    float crispIdleThreshold;
     uint64_t crispCycleCount;
 
     // Per-address miss tracking

@@ -409,7 +409,9 @@ ComputeUnit::ComputeUnit(const Params &p)
     }
     tMemory = 0;
     tStallLCP = 0;
+    tIdle = 0;
     crispThreshold = 0.5f;
+    crispIdleThreshold = 0.8f;
     crispCycleCount = 0;
 }
 
@@ -1043,20 +1045,37 @@ ComputeUnit::crispWindowEval(Tick curTick)
         crispTs[lineAddr] = 0;
     }
 
+    uint64_t T_total = crispWindowDurationCycles;
+    uint64_t T_active = T_total - tIdle;
     uint64_t T_overlapped_compute = tMemory - tStallLCP;
-    uint64_t T_pure_compute = crispWindowDurationCycles - tMemory;
+    uint64_t T_pure_compute = T_active - tMemory;
+
+    if ((float)tIdle / T_total > crispIdleThreshold) {
+        DPRINTF(CRISPdvfs, "CRISP WARNING: High idle "
+                "fraction: TIdle=%llu T_total=%llu\n",
+                (unsigned long long)tIdle,
+                (unsigned long long)T_total);
+    }
 
     DPRINTF(CRISPdvfs, "CRISP Window: "
             "tick=%llu "
             "TMemory=%llu "
             "TStall_LCP=%llu "
+            "TIdle=%llu "
+            "T_active=%llu "
             "T_overlapped_compute=%llu "
             "T_pure_compute=%llu\n",
             (unsigned long long)curTick,
             (unsigned long long)tMemory,
             (unsigned long long)tStallLCP,
+            (unsigned long long)tIdle,
+            (unsigned long long)T_active,
             (unsigned long long)T_overlapped_compute,
             (unsigned long long)T_pure_compute);
+
+    tMemory = 0;
+    tStallLCP = 0;
+    tIdle = 0;
 }
 
 void
@@ -1084,41 +1103,58 @@ ComputeUnit::crispRecordReturn(Addr addr)
 void
 ComputeUnit::crispLabelCycle()
 {
-    // CRISP cycle labeling
-    bool compute_issued = false;
-    bool vmcnt_stall_exists = false;
-
-    // Check compute utilization
-    int compute_units_issued = 0;
-    int total_compute_units = firstMemUnit();
-    for (int unitId = 0; unitId < firstMemUnit(); unitId++) {
-        if (scheduleToExecute.dispatchStatus(unitId)
-            == EXREADY) {
-            compute_units_issued++;
-        }
-    }
-    float compute_utilization =
-        (float)compute_units_issued / total_compute_units;
-    compute_issued = (compute_utilization >= crispThreshold);
-
-    // Check vmcnt stall across all active wavefronts
+    bool any_active = false;
     for (int i = 0; i < numVectorALUs; i++) {
         for (int j = 0; j < shader->n_wf; j++) {
-            Wavefront *wf = wfList[i][j];
-            if (wf->getStatus() != Wavefront::S_STOPPED) {
-                if (wf->isVmemWaitcntStalled()) {
-                    vmcnt_stall_exists = true;
-                    break;
-                }
+            if (wfList[i][j]->getStatus() != Wavefront::S_STOPPED) {
+                any_active = true;
+                break;
             }
         }
-        if (vmcnt_stall_exists) break;
+        if (any_active) break;
     }
 
-    // Label the cycle
-    if (!compute_issued && vmcnt_stall_exists) {
-        tMemory++;
-        tStallLCP++;
+    if (!any_active) {
+        tIdle++;
+    }
+
+    if (any_active) {
+        // CRISP cycle labeling
+        bool compute_issued = false;
+        bool vmcnt_stall_exists = false;
+
+        // Check compute utilization
+        int compute_units_issued = 0;
+        int total_compute_units = firstMemUnit();
+        for (int unitId = 0; unitId < firstMemUnit(); unitId++) {
+            if (scheduleToExecute.dispatchStatus(unitId)
+                == EXREADY) {
+                compute_units_issued++;
+            }
+        }
+        float compute_utilization =
+            (float)compute_units_issued / total_compute_units;
+        compute_issued = (compute_utilization >= crispThreshold);
+
+        // Check vmcnt stall across all active wavefronts
+        for (int i = 0; i < numVectorALUs; i++) {
+            for (int j = 0; j < shader->n_wf; j++) {
+                Wavefront *wf = wfList[i][j];
+                if (wf->getStatus() != Wavefront::S_STOPPED) {
+                    if (wf->isVmemWaitcntStalled()) {
+                        vmcnt_stall_exists = true;
+                        break;
+                    }
+                }
+            }
+            if (vmcnt_stall_exists) break;
+        }
+
+        // Label the cycle
+        if (!compute_issued && vmcnt_stall_exists) {
+            tMemory++;
+            tStallLCP++;
+        }
     }
 
     // Window evaluation

@@ -1007,6 +1007,7 @@ class ComputeUnit : public ClockedObject
     }
     uint64_t crispWindowDurationCycles;
     // CRISP DVFS counters
+    static constexpr int CrispMaxComputeUnits = 10;
     uint64_t tMemory;       // Load critical path
     uint64_t tStallLCP;     // Load stall cycles
     uint64_t tIdle;
@@ -1015,6 +1016,21 @@ class ComputeUnit : public ClockedObject
     int crispMshrCapacity;
     float crispIdleThreshold;
     uint64_t crispCycleCount;
+    uint64_t crispIssuedMin;
+    uint64_t crispIssuedMax;
+    uint64_t crispIssuedSum;
+    uint64_t crispIssuedHistogram[CrispMaxComputeUnits];
+    float crispUtilMin;
+    float crispUtilMax;
+    float crispUtilSum;
+    uint64_t crispUtilHistogram[10];
+    uint64_t crispCaseHistogram[9];
+    uint64_t crispVmcntMin;
+    uint64_t crispVmcntMax;
+    uint64_t crispVmcntSum;
+    uint64_t crispVmcntHistogram[6];
+    uint64_t crispStoreFractionHistogram[10];
+    uint64_t crispActiveCycleCount;
 
     // Per-address miss tracking
     std::unordered_map<Addr, uint64_t> crispTs;

@@ -33,6 +33,7 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <cstdint>
 #include <cstdlib>
 #include <limits>
 
@@ -415,6 +416,21 @@ ComputeUnit::ComputeUnit(const Params &p)
     crispMshrCapacity = p.global_mem_queue_size;
     crispIdleThreshold = 0.8f;
     crispCycleCount = 0;
+    crispIssuedMin = UINT64_MAX;
+    crispIssuedMax = 0;
+    crispIssuedSum = 0;
+    crispUtilMin = 1.0f;
+    crispUtilMax = 0.0f;
+    crispUtilSum = 0.0f;
+    crispActiveCycleCount = 0;
+    crispVmcntMin = UINT64_MAX;
+    crispVmcntMax = 0;
+    crispVmcntSum = 0;
+    std::fill_n(crispIssuedHistogram, CrispMaxComputeUnits, 0);
+    std::fill_n(crispUtilHistogram, 10, 0);
+    std::fill_n(crispCaseHistogram, 9, 0);
+    std::fill_n(crispVmcntHistogram, 6, 0);
+    std::fill_n(crispStoreFractionHistogram, 10, 0);
 }
 
 ComputeUnit::~ComputeUnit()
@@ -1075,9 +1091,106 @@ ComputeUnit::crispWindowEval(Tick curTick)
             (unsigned long long)T_overlapped_compute,
             (unsigned long long)T_pure_compute);
 
+    float avg_issued = crispActiveCycleCount > 0 ?
+        (float)crispIssuedSum / crispActiveCycleCount : 0.0f;
+    float avg_util = crispActiveCycleCount > 0 ?
+        crispUtilSum / crispActiveCycleCount : 0.0f;
+    float avg_vmcnt = crispActiveCycleCount > 0 ?
+        (float)crispVmcntSum / crispActiveCycleCount : 0.0f;
+
+    DPRINTF(CRISPdvfs, "CRISP Issued: "
+            "min=%llu max=%llu avg=%.2f "
+            "histogram=[%llu,%llu,%llu,%llu,%llu,"
+            "%llu,%llu,%llu,%llu,%llu]\n",
+            (unsigned long long)crispIssuedMin,
+            (unsigned long long)crispIssuedMax,
+            avg_issued,
+            (unsigned long long)crispIssuedHistogram[0],
+            (unsigned long long)crispIssuedHistogram[1],
+            (unsigned long long)crispIssuedHistogram[2],
+            (unsigned long long)crispIssuedHistogram[3],
+            (unsigned long long)crispIssuedHistogram[4],
+            (unsigned long long)crispIssuedHistogram[5],
+            (unsigned long long)crispIssuedHistogram[6],
+            (unsigned long long)crispIssuedHistogram[7],
+            (unsigned long long)crispIssuedHistogram[8],
+            (unsigned long long)crispIssuedHistogram[9]);
+
+    DPRINTF(CRISPdvfs, "CRISP Utilization: "
+            "min=%.2f max=%.2f avg=%.2f "
+            "histogram=[%llu,%llu,%llu,%llu,%llu,"
+            "%llu,%llu,%llu,%llu,%llu]\n",
+            crispUtilMin, crispUtilMax, avg_util,
+            (unsigned long long)crispUtilHistogram[0],
+            (unsigned long long)crispUtilHistogram[1],
+            (unsigned long long)crispUtilHistogram[2],
+            (unsigned long long)crispUtilHistogram[3],
+            (unsigned long long)crispUtilHistogram[4],
+            (unsigned long long)crispUtilHistogram[5],
+            (unsigned long long)crispUtilHistogram[6],
+            (unsigned long long)crispUtilHistogram[7],
+            (unsigned long long)crispUtilHistogram[8],
+            (unsigned long long)crispUtilHistogram[9]);
+
+    DPRINTF(CRISPdvfs, "CRISP Cases: "
+            "[C1=%llu,C2=%llu,C3=%llu,C4=%llu,C5=%llu,"
+            "C6=%llu,C7=%llu,C8=%llu,C9=%llu]\n",
+            (unsigned long long)crispCaseHistogram[0],
+            (unsigned long long)crispCaseHistogram[1],
+            (unsigned long long)crispCaseHistogram[2],
+            (unsigned long long)crispCaseHistogram[3],
+            (unsigned long long)crispCaseHistogram[4],
+            (unsigned long long)crispCaseHistogram[5],
+            (unsigned long long)crispCaseHistogram[6],
+            (unsigned long long)crispCaseHistogram[7],
+            (unsigned long long)crispCaseHistogram[8]);
+
+    DPRINTF(CRISPdvfs, "CRISP Vmcnt: "
+            "min=%llu max=%llu avg=%.2f "
+            "histogram=[0:%llu,1-8:%llu,9-16:%llu,"
+            "17-24:%llu,25-32:%llu,33+:%llu]\n",
+            (unsigned long long)crispVmcntMin,
+            (unsigned long long)crispVmcntMax,
+            avg_vmcnt,
+            (unsigned long long)crispVmcntHistogram[0],
+            (unsigned long long)crispVmcntHistogram[1],
+            (unsigned long long)crispVmcntHistogram[2],
+            (unsigned long long)crispVmcntHistogram[3],
+            (unsigned long long)crispVmcntHistogram[4],
+            (unsigned long long)crispVmcntHistogram[5]);
+
+    DPRINTF(CRISPdvfs, "CRISP StoreFraction: "
+            "histogram=[%llu,%llu,%llu,%llu,%llu,"
+            "%llu,%llu,%llu,%llu,%llu]\n",
+            (unsigned long long)crispStoreFractionHistogram[0],
+            (unsigned long long)crispStoreFractionHistogram[1],
+            (unsigned long long)crispStoreFractionHistogram[2],
+            (unsigned long long)crispStoreFractionHistogram[3],
+            (unsigned long long)crispStoreFractionHistogram[4],
+            (unsigned long long)crispStoreFractionHistogram[5],
+            (unsigned long long)crispStoreFractionHistogram[6],
+            (unsigned long long)crispStoreFractionHistogram[7],
+            (unsigned long long)crispStoreFractionHistogram[8],
+            (unsigned long long)crispStoreFractionHistogram[9]);
+
     tMemory = 0;
     tStallLCP = 0;
     tIdle = 0;
+    crispIssuedMin = UINT64_MAX;
+    crispIssuedMax = 0;
+    crispIssuedSum = 0;
+    crispUtilMin = 1.0f;
+    crispUtilMax = 0.0f;
+    crispUtilSum = 0.0f;
+    crispActiveCycleCount = 0;
+    crispVmcntMin = UINT64_MAX;
+    crispVmcntMax = 0;
+    crispVmcntSum = 0;
+    std::fill_n(crispIssuedHistogram, CrispMaxComputeUnits, 0);
+    std::fill_n(crispUtilHistogram, 10, 0);
+    std::fill_n(crispCaseHistogram, 9, 0);
+    std::fill_n(crispVmcntHistogram, 6, 0);
+    std::fill_n(crispStoreFractionHistogram, 10, 0);
 }
 
 void
@@ -1155,24 +1268,115 @@ ComputeUnit::crispLabelCycle()
         compute_issued = (compute_utilization >= crispThreshold);
 
         // Check vmcnt stall across all active wavefronts
+        uint64_t vmcnt_stalled_count = 0;
+        uint64_t total_active_wfs = 0;
         for (int i = 0; i < numVectorALUs; i++) {
             for (int j = 0; j < shader->n_wf; j++) {
                 Wavefront *wf = wfList[i][j];
                 if (wf->getStatus() != Wavefront::S_STOPPED) {
+                    total_active_wfs++;
                     if (wf->isVmemWaitcntStalled()) {
-                        vmcnt_stall_exists = true;
-                        break;
+                        vmcnt_stalled_count++;
                     }
                 }
             }
-            if (vmcnt_stall_exists) break;
         }
+        vmcnt_stall_exists = (vmcnt_stalled_count > 0);
+
+        // Store stall detection
+        int total_mshr = crispIsLoad.size();
+        int store_count = 0;
+        for (auto &entry : crispIsLoad) {
+            if (!entry.second) {
+                store_count++;
+            }
+        }
+        float store_fraction = total_mshr > 0 ?
+            (float)store_count / total_mshr : 0.0f;
+        bool mshr_full = (total_mshr >= crispMshrCapacity);
+        bool store_stall = mshr_full &&
+            (store_fraction >= crispStoreThreshold);
 
         // Label the cycle
         if (!compute_issued && vmcnt_stall_exists) {
             tMemory++;
             tStallLCP++;
         }
+
+        // Update compute issued stats
+        crispIssuedMin = std::min(crispIssuedMin,
+                                  (uint64_t)compute_units_issued);
+        crispIssuedMax = std::max(crispIssuedMax,
+                                  (uint64_t)compute_units_issued);
+        crispIssuedSum += compute_units_issued;
+        crispIssuedHistogram[compute_units_issued]++;
+
+        // Update compute utilization stats
+        crispUtilMin = std::min(crispUtilMin, compute_utilization);
+        crispUtilMax = std::max(crispUtilMax, compute_utilization);
+        crispUtilSum += compute_utilization;
+        int util_bucket = std::min((int)(compute_utilization * 10), 9);
+        crispUtilHistogram[util_bucket]++;
+
+        // Update vmcnt stats
+        crispVmcntMin = std::min(crispVmcntMin, vmcnt_stalled_count);
+        crispVmcntMax = std::max(crispVmcntMax, vmcnt_stalled_count);
+        crispVmcntSum += vmcnt_stalled_count;
+        int vmcnt_bucket = 0;
+        if (vmcnt_stalled_count == 0) {
+            vmcnt_bucket = 0;
+        } else if (vmcnt_stalled_count <= 8) {
+            vmcnt_bucket = 1;
+        } else if (vmcnt_stalled_count <= 16) {
+            vmcnt_bucket = 2;
+        } else if (vmcnt_stalled_count <= 24) {
+            vmcnt_bucket = 3;
+        } else if (vmcnt_stalled_count <= 32) {
+            vmcnt_bucket = 4;
+        } else {
+            vmcnt_bucket = 5;
+        }
+        crispVmcntHistogram[vmcnt_bucket]++;
+
+        // Update store fraction histogram
+        int store_bucket = std::min((int)(store_fraction * 10), 9);
+        crispStoreFractionHistogram[store_bucket]++;
+
+        // Update active cycle count
+        crispActiveCycleCount++;
+
+        // Determine and record case
+        int crisp_case = 0;
+        if (compute_issued) {
+            if (vmcnt_stall_exists && store_stall) {
+                crisp_case = 3;
+            } else if (vmcnt_stall_exists) {
+                crisp_case = 2;
+            } else if (store_stall) {
+                crisp_case = 3;
+            } else {
+                crisp_case = 1;
+            }
+        } else {
+            bool all_vmcnt = (vmcnt_stalled_count > 0 &&
+                              vmcnt_stalled_count == total_active_wfs);
+            if (all_vmcnt && store_stall) {
+                crisp_case = 6;
+            } else if (all_vmcnt) {
+                crisp_case = 4;
+            } else if (vmcnt_stall_exists && store_stall) {
+                crisp_case = 6;
+            } else if (vmcnt_stall_exists) {
+                crisp_case = 5;
+            } else if (store_stall) {
+                crisp_case = 7;
+            } else {
+                crisp_case = 8;
+            }
+        }
+        crispCaseHistogram[crisp_case - 1]++;
+    } else {
+        crispCaseHistogram[8]++;
     }
 
     // Window evaluation

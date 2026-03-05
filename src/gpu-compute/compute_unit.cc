@@ -411,6 +411,8 @@ ComputeUnit::ComputeUnit(const Params &p)
     tStallLCP = 0;
     tIdle = 0;
     crispThreshold = 0.5f;
+    crispStoreThreshold = 0.5f;
+    crispMshrCapacity = p.global_mem_queue_size;
     crispIdleThreshold = 0.8f;
     crispCycleCount = 0;
 }
@@ -1084,6 +1086,7 @@ ComputeUnit::crispRecordMiss(Addr addr)
     Addr lineAddr = crispLineAddr(addr);
     crispTick[lineAddr] = curTick();
     crispTs[lineAddr] = tMemory;
+    crispIsLoad[lineAddr] = true;
 }
 
 void
@@ -1098,6 +1101,21 @@ ComputeUnit::crispRecordReturn(Addr addr)
     tMemory = std::max(tMemory, crispTs[lineAddr] + latency_cycles);
     crispTick.erase(lineAddr);
     crispTs.erase(lineAddr);
+    crispIsLoad.erase(lineAddr);
+}
+
+void
+ComputeUnit::crispRecordStoreMiss(Addr addr)
+{
+    Addr lineAddr = crispLineAddr(addr);
+    crispIsLoad[lineAddr] = false;
+}
+
+void
+ComputeUnit::crispRecordStoreReturn(Addr addr)
+{
+    Addr lineAddr = crispLineAddr(addr);
+    crispIsLoad.erase(lineAddr);
 }
 
 void

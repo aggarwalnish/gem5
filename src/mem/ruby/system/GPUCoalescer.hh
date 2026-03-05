@@ -199,6 +199,12 @@ class PendingWriteInst
         return numPendingStores;
     }
 
+    GPUDynInstPtr
+    getGpuDynInst() const
+    {
+        return gpuDynInstPtr;
+    }
+
   private:
     // the number of stores waiting for writeCompleteCallback
     int numPendingStores;
@@ -312,6 +318,7 @@ class GPUCoalescer : public RubyPort
                       bool externalHit);
 
     void crispMissDetected(Addr addr);
+    void crispStoreMissDetected(Addr addr);
     
     /* atomics need their own callback because the data
        might be const coming from SLICC */

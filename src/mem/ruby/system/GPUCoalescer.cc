@@ -465,6 +465,14 @@ GPUCoalescer::writeCompleteCallback(Addr address,
 
     assert(pendingWriteInsts.count(instSeqNum) == 1);
     PendingWriteInst& inst = pendingWriteInsts[instSeqNum];
+    Addr line_addr = makeLineAddress(address);
+
+    if (!m_usingRubyTester) {
+        GPUDynInstPtr gpu_inst = inst.getGpuDynInst();
+        if (gpu_inst && gpu_inst->computeUnit()) {
+            gpu_inst->computeUnit()->crispRecordStoreReturn(line_addr);
+        }
+    }
 
     // check the uncoalescedTable to see whether all requests for the inst
     // have been issued or not
@@ -595,6 +603,31 @@ GPUCoalescer::crispMissDetected(Addr addr)
     GPUDynInstPtr inst = getDynInst(pkt);
     if (inst && inst->computeUnit()) {
         inst->computeUnit()->crispRecordMiss(line_addr);
+    }
+}
+
+void
+GPUCoalescer::crispStoreMissDetected(Addr addr)
+{
+    if (m_usingRubyTester) {
+        return;
+    }
+
+    Addr line_addr = makeLineAddress(addr);
+    auto it = coalescedTable.find(line_addr);
+    if (it == coalescedTable.end() || it->second.empty()) {
+        return;
+    }
+
+    CoalescedRequest *creq = it->second.front();
+    if (creq->getRubyType() != RubyRequestType_ST) {
+        return;
+    }
+
+    PacketPtr pkt = creq->getFirstPkt();
+    GPUDynInstPtr inst = getDynInst(pkt);
+    if (inst && inst->computeUnit()) {
+        inst->computeUnit()->crispRecordStoreMiss(line_addr);
     }
 }
 

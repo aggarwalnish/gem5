@@ -45,6 +45,8 @@ structure (GPUCoalescer, external = "yes") {
   void evictionCallback(Addr);
   void recordCPReadCallBack(MachineID, MachineID);
   void recordCPWriteCallBack(MachineID, MachineID);
+  void crispMissDetected(Addr);
+  void crispStoreMissDetected(Addr);
 }
 
 structure (VIPERCoalescer, external = "yes") {
@@ -66,4 +68,5 @@ structure (VIPERCoalescer, external = "yes") {
   void writeCompleteCallback(Addr, uint64_t);
   void evictionCallback(Addr);
   void crispMissDetected(Addr);
+  void crispStoreMissDetected(Addr);
 }

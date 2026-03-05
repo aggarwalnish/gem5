@@ -164,6 +164,7 @@ structure (Sequencer, external = "yes") {
   bool checkResourceAvailable(CacheResourceType, Addr);
 
   void crispMissDetected(Addr);
+  void crispStoreMissDetected(Addr);
 }
 
 structure (HTMSequencer, interface="Sequencer", external = "yes") {

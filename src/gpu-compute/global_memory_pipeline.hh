@@ -104,6 +104,10 @@ class GlobalMemPipeline
         stats.loadVrfBankConflictCycles += num_cycles;
     }
 
+    int getInflightLoads() const { return inflightLoads; }
+    int getInflightStores() const { return inflightStores; }
+    int getGmQueueSize() const { return gmQueueSize; }
+
     bool coalescerReady(GPUDynInstPtr mp) const;
     bool outstandingReqsCheck(GPUDynInstPtr mp) const;
 

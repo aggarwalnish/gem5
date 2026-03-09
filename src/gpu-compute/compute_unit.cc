@@ -412,8 +412,6 @@ ComputeUnit::ComputeUnit(const Params &p)
     tStallLCP = 0;
     tIdle = 0;
     crispThreshold = 0.5f;
-    crispStoreThreshold = 0.5f;
-    crispMshrCapacity = p.global_mem_queue_size;
     crispIdleThreshold = 0.8f;
     crispCycleCount = 0;
     crispIssuedMin = UINT64_MAX;
@@ -430,7 +428,6 @@ ComputeUnit::ComputeUnit(const Params &p)
     std::fill_n(crispUtilHistogram, 10, 0);
     std::fill_n(crispCaseHistogram, 9, 0);
     std::fill_n(crispVmcntHistogram, 6, 0);
-    std::fill_n(crispStoreFractionHistogram, 10, 0);
 }
 
 ComputeUnit::~ComputeUnit()
@@ -1159,20 +1156,6 @@ ComputeUnit::crispWindowEval(Tick curTick)
             (unsigned long long)crispVmcntHistogram[4],
             (unsigned long long)crispVmcntHistogram[5]);
 
-    DPRINTF(CRISPdvfs, "CRISP StoreFraction: "
-            "histogram=[%llu,%llu,%llu,%llu,%llu,"
-            "%llu,%llu,%llu,%llu,%llu]\n",
-            (unsigned long long)crispStoreFractionHistogram[0],
-            (unsigned long long)crispStoreFractionHistogram[1],
-            (unsigned long long)crispStoreFractionHistogram[2],
-            (unsigned long long)crispStoreFractionHistogram[3],
-            (unsigned long long)crispStoreFractionHistogram[4],
-            (unsigned long long)crispStoreFractionHistogram[5],
-            (unsigned long long)crispStoreFractionHistogram[6],
-            (unsigned long long)crispStoreFractionHistogram[7],
-            (unsigned long long)crispStoreFractionHistogram[8],
-            (unsigned long long)crispStoreFractionHistogram[9]);
-
     tMemory = 0;
     tStallLCP = 0;
     tIdle = 0;
@@ -1190,7 +1173,6 @@ ComputeUnit::crispWindowEval(Tick curTick)
     std::fill_n(crispUtilHistogram, 10, 0);
     std::fill_n(crispCaseHistogram, 9, 0);
     std::fill_n(crispVmcntHistogram, 6, 0);
-    std::fill_n(crispStoreFractionHistogram, 10, 0);
 }
 
 void
@@ -1199,7 +1181,6 @@ ComputeUnit::crispRecordMiss(Addr addr)
     Addr lineAddr = crispLineAddr(addr);
     crispTick[lineAddr] = curTick();
     crispTs[lineAddr] = tMemory;
-    crispIsLoad[lineAddr] = true;
 }
 
 void
@@ -1214,21 +1195,6 @@ ComputeUnit::crispRecordReturn(Addr addr)
     tMemory = std::max(tMemory, crispTs[lineAddr] + latency_cycles);
     crispTick.erase(lineAddr);
     crispTs.erase(lineAddr);
-    crispIsLoad.erase(lineAddr);
-}
-
-void
-ComputeUnit::crispRecordStoreMiss(Addr addr)
-{
-    Addr lineAddr = crispLineAddr(addr);
-    crispIsLoad[lineAddr] = false;
-}
-
-void
-ComputeUnit::crispRecordStoreReturn(Addr addr)
-{
-    Addr lineAddr = crispLineAddr(addr);
-    crispIsLoad.erase(lineAddr);
 }
 
 void
@@ -1283,19 +1249,9 @@ ComputeUnit::crispLabelCycle()
         }
         vmcnt_stall_exists = (vmcnt_stalled_count > 0);
 
-        // Store stall detection
-        int total_mshr = crispIsLoad.size();
-        int store_count = 0;
-        for (auto &entry : crispIsLoad) {
-            if (!entry.second) {
-                store_count++;
-            }
-        }
-        float store_fraction = total_mshr > 0 ?
-            (float)store_count / total_mshr : 0.0f;
-        bool mshr_full = (total_mshr >= crispMshrCapacity);
-        bool store_stall = mshr_full &&
-            (store_fraction >= crispStoreThreshold);
+        bool store_stall =
+            (globalMemoryPipe.getInflightStores() >=
+             globalMemoryPipe.getGmQueueSize());
 
         // Label the cycle
         if (!compute_issued && vmcnt_stall_exists) {
@@ -1337,10 +1293,6 @@ ComputeUnit::crispLabelCycle()
             vmcnt_bucket = 5;
         }
         crispVmcntHistogram[vmcnt_bucket]++;
-
-        // Update store fraction histogram
-        int store_bucket = std::min((int)(store_fraction * 10), 9);
-        crispStoreFractionHistogram[store_bucket]++;
 
         // Update active cycle count
         crispActiveCycleCount++;

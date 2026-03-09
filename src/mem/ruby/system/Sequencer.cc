@@ -480,35 +480,6 @@ Sequencer::writeCallback(Addr address, DataBlock& data,
     assert(address == makeLineAddress(address));
     assert(m_RequestTable.find(address) != m_RequestTable.end());
     auto &seq_req_list = m_RequestTable[address];
-    Addr line_addr = address;
-
-    if (!seq_req_list.empty()) {
-        PacketPtr pkt = seq_req_list.front().pkt;
-        if (pkt && pkt->senderState) {
-            RubyPort::SenderState *ss =
-                safe_cast<RubyPort::SenderState *>(pkt->senderState);
-            Packet::SenderState *pred = ss->predecessor;
-            if (pred) {
-                if (auto *sqc_ss =
-                        dynamic_cast<ComputeUnit::SQCPort::SenderState *>(
-                            pred)) {
-                    if (sqc_ss->wavefront && sqc_ss->wavefront->computeUnit) {
-                        sqc_ss->wavefront->computeUnit->crispRecordStoreReturn(
-                            line_addr);
-                    }
-                } else if (auto *scalar_ss =
-                        dynamic_cast<ComputeUnit::ScalarDataPort::SenderState *>(
-                            pred)) {
-                    if (scalar_ss->_gpuDynInst &&
-                        scalar_ss->_gpuDynInst->computeUnit()) {
-                        scalar_ss->_gpuDynInst->computeUnit()
-                            ->crispRecordStoreReturn(line_addr);
-                    }
-                }
-            }
-        }
-    }
-
     // Perform hitCallback on every cpu request made to this cache block while
     // ruby request was outstanding. Since only 1 ruby request was made,
     // profile the ruby latency once.
@@ -703,46 +674,6 @@ Sequencer::crispMissDetected(Addr addr)
         if (scalar_ss->_gpuDynInst &&
             scalar_ss->_gpuDynInst->computeUnit()) {
             scalar_ss->_gpuDynInst->computeUnit()->crispRecordMiss(line_addr);
-        }
-        return;
-    }
-}
-
-void
-Sequencer::crispStoreMissDetected(Addr addr)
-{
-    Addr line_addr = makeLineAddress(addr);
-    auto it = m_RequestTable.find(line_addr);
-    if (it == m_RequestTable.end() || it->second.empty()) {
-        return;
-    }
-
-    PacketPtr pkt = it->second.front().pkt;
-    if (!pkt || !pkt->senderState) {
-        return;
-    }
-
-    RubyPort::SenderState *ss =
-        safe_cast<RubyPort::SenderState *>(pkt->senderState);
-    Packet::SenderState *pred = ss->predecessor;
-    if (!pred) {
-        return;
-    }
-
-    if (auto *sqc_ss =
-            dynamic_cast<ComputeUnit::SQCPort::SenderState *>(pred)) {
-        if (sqc_ss->wavefront && sqc_ss->wavefront->computeUnit) {
-            sqc_ss->wavefront->computeUnit->crispRecordStoreMiss(line_addr);
-        }
-        return;
-    }
-
-    if (auto *scalar_ss =
-            dynamic_cast<ComputeUnit::ScalarDataPort::SenderState *>(pred)) {
-        if (scalar_ss->_gpuDynInst &&
-            scalar_ss->_gpuDynInst->computeUnit()) {
-            scalar_ss->_gpuDynInst->computeUnit()->crispRecordStoreMiss(
-                line_addr);
         }
         return;
     }

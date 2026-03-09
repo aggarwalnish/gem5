@@ -179,3 +179,6 @@ for f in nodes:
         # for it to contain a single SimObject with the same name.
         assert filename.endswith("_Controller.py")
         SimObject(f, sim_objects=[os.path.splitext(filename)[0]])
+
+if env["CONF"].get("RUBY_PROTOCOL_GPU_VIPER", False):
+    Source("GPU_VIPER_TCC_crisp.cc")

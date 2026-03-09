@@ -1012,8 +1012,6 @@ class ComputeUnit : public ClockedObject
     uint64_t tStallLCP;     // Load stall cycles
     uint64_t tIdle;
     float crispThreshold;
-    float crispStoreThreshold;
-    int crispMshrCapacity;
     float crispIdleThreshold;
     uint64_t crispCycleCount;
     uint64_t crispIssuedMin;
@@ -1029,13 +1027,11 @@ class ComputeUnit : public ClockedObject
     uint64_t crispVmcntMax;
     uint64_t crispVmcntSum;
     uint64_t crispVmcntHistogram[6];
-    uint64_t crispStoreFractionHistogram[10];
     uint64_t crispActiveCycleCount;
 
     // Per-address miss tracking
     std::unordered_map<Addr, uint64_t> crispTs;
     std::unordered_map<Addr, uint64_t> crispTick;
-    std::unordered_map<Addr, bool> crispIsLoad;
 
     /**
      * TODO: Update these comments once the pipe stage interface has
@@ -1092,8 +1088,6 @@ class ComputeUnit : public ClockedObject
     void crispLabelCycle();
     void crispRecordMiss(Addr addr);
     void crispRecordReturn(Addr addr);
-    void crispRecordStoreMiss(Addr addr);
-    void crispRecordStoreReturn(Addr addr);
     int activeWaves;
 
     struct ComputeUnitStats : public statistics::Group

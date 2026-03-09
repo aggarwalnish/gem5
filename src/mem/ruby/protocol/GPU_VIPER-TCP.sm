@@ -357,11 +357,6 @@ machine(MachineType:TCP, "GPU TCP (L1 Data Cache)")
   }
 
   action(n_issueRdBlk, "n", desc="Issue RdBlk") {
-    if (use_seq_not_coal) {
-      sequencer.crispMissDetected(address);
-    } else {
-      coalescer.crispMissDetected(address);
-    }
     enqueue(requestNetwork_out, CPURequestMsg, issue_latency) {
       out_msg.addr := address;
       out_msg.Type := CoherenceRequestType:RdBlk;
@@ -624,11 +619,6 @@ machine(MachineType:TCP, "GPU TCP (L1 Data Cache)")
   }
 
   action(sna_storeDoneMissNoAlloc, "sna", desc="local store done (misses in TCP)") {
-    if (use_seq_not_coal) {
-        sequencer.crispStoreMissDetected(address);
-    } else {
-        coalescer.crispStoreMissDetected(address);
-    }
     peek(mandatoryQueue_in, RubyRequest) {
       // writeCallback requires pass-by-reference and in_msg.WTData is a const value.
       DataBlock tmp := in_msg.WTData;

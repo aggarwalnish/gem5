@@ -55,6 +55,7 @@
 #include "mem/ruby/common/Address.hh"
 #include "mem/ruby/common/BoolVec.hh"
 #include "mem/ruby/common/DataBlock.hh"
+#include "mem/ruby/common/MachineID.hh"
 #include "mem/ruby/common/TypeDefines.hh"
 #include "mem/ruby/common/WriteMask.hh"
 #include "mem/ruby/protocol/RubyRequestType.hh"
@@ -64,6 +65,9 @@ namespace gem5
 
 namespace ruby
 {
+
+class RubySystem;
+extern RubySystem *g_ruby_system;
 
 inline Cycles zero_time() { return Cycles(0); }
 
@@ -325,6 +329,8 @@ getRequestorID(RequestPtr req)
 {
     return req->requestorId();
 }
+
+void crispMissDetectedFromTCCImpl(Addr addr, MachineID requestor);
 
 } // namespace ruby
 } // namespace gem5

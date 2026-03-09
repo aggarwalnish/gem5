@@ -1,12 +1,9 @@
 /*
- * CRISP TCC miss routing helpers for the GPU_VIPER protocol.
+ * CRISP TCC miss routing helper for the GPU_VIPER protocol.
  */
 
-#include "mem/ruby/protocol/GPU_VIPER/TCC_Controller.hh"
+#include "mem/ruby/slicc_interface/RubySlicc_Util.hh"
 
-#include <cstddef>
-
-#include "mem/ruby/common/MachineID.hh"
 #include "mem/ruby/slicc_interface/AbstractController.hh"
 #include "mem/ruby/system/GPUCoalescer.hh"
 #include "mem/ruby/system/RubySystem.hh"
@@ -16,24 +13,21 @@ namespace gem5
 {
 namespace ruby
 {
-namespace GPU_VIPER
-{
 
 void
-TCC_Controller::crispMissDetectedFromTCC(Addr addr, MachineID requestor)
+crispMissDetectedFromTCCImpl(Addr addr, MachineID requestor)
 {
-    if (!m_ruby_system) {
+    RubySystem *rs = g_ruby_system;
+    if (!rs) {
         return;
     }
 
-    const auto type = requestor.getType();
-    const auto num = requestor.getNum();
-    if (static_cast<size_t>(type) >= m_ruby_system->m_abstract_controls.size()) {
+    if (requestor.type >= MachineType_NUM) {
         return;
     }
 
-    auto &by_num = m_ruby_system->m_abstract_controls[type];
-    auto it = by_num.find(num);
+    auto &by_num = rs->m_abstract_controls[requestor.type];
+    auto it = by_num.find(requestor.num);
     if (it == by_num.end() || !it->second) {
         return;
     }
@@ -48,6 +42,5 @@ TCC_Controller::crispMissDetectedFromTCC(Addr addr, MachineID requestor)
     }
 }
 
-} // namespace GPU_VIPER
 } // namespace ruby
 } // namespace gem5

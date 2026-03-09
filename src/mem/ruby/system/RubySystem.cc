@@ -53,6 +53,7 @@
 #include "debug/RubySystem.hh"
 #include "mem/ruby/common/Address.hh"
 #include "mem/ruby/network/Network.hh"
+#include "mem/ruby/slicc_interface/RubySlicc_Util.hh"
 #include "mem/ruby/system/DMASequencer.hh"
 #include "mem/ruby/system/Sequencer.hh"
 #include "mem/simple_mem.hh"
@@ -69,10 +70,13 @@ namespace ruby
 // To look forward to allowing multiple RubySystem instances, track the number
 // of RubySystems that need to be warmed up on checkpoint restore.
 
+RubySystem *g_ruby_system = nullptr;
+
 RubySystem::RubySystem(const Params &p)
     : ClockedObject(p), m_access_backing_store(p.access_backing_store),
       m_cache_recorder(NULL)
 {
+    g_ruby_system = this;
     m_randomization = p.randomization;
 
     m_block_size_bytes = p.block_size_bytes;

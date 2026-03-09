@@ -143,8 +143,6 @@ machine(MachineType:TCC, "TCC Cache")
   void wakeUpBuffers(Addr a);
   void wakeUpAllBuffers(Addr a);
 
-  void crispMissDetectedFromTCC(Addr addr, MachineID requestor);
-
   MachineID mapAddressToMachine(Addr addr, MachineType mtype);
 
   // FUNCTION DEFINITIONS
@@ -547,7 +545,7 @@ machine(MachineType:TCC, "TCC Cache")
   action(rd_requestData, "r", desc="Miss in L2, pass on") {
     peek(coreRequestNetwork_in, CPURequestMsg) {
       DPRINTF(RubySlicc, "in_msg: %s\n", in_msg);
-      crispMissDetectedFromTCC(address, in_msg.Requestor);
+      crispMissDetectedFromTCCImpl(address, in_msg.Requestor);
       enqueue(requestToNB_out, CPURequestMsg, l2_request_latency) {
         out_msg.addr := address;
         out_msg.Type := in_msg.Type;

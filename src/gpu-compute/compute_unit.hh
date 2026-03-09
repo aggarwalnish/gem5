@@ -1027,12 +1027,21 @@ class ComputeUnit : public ClockedObject
     uint64_t crispVmcntMax;
     uint64_t crispVmcntSum;
     uint64_t crispVmcntHistogram[6];
+    uint64_t crispTotalIssuedMin;
+    uint64_t crispTotalIssuedMax;
+    uint64_t crispTotalIssuedSum;
+    uint64_t crispTotalIssuedHistogram[9];
     uint64_t crispInflightStoresMin;
     uint64_t crispInflightStoresMax;
     uint64_t crispInflightStoresSum;
     uint64_t crispInflightStoresHistogram[9];
     // Buckets: 0, then 8 dynamic ranges over (1..gmQueueSize)
     uint64_t crispActiveCycleCount;
+    uint64_t crispValuIssuedCount;
+    uint64_t crispSaluIssuedCount;
+    uint64_t crispVmemIssuedCount;
+    uint64_t crispSmemIssuedCount;
+    uint64_t crispLdsIssuedCount;
 
     // Per-address miss tracking
     std::unordered_map<Addr, uint64_t> crispTs;

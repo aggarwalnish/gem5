@@ -424,13 +424,22 @@ ComputeUnit::ComputeUnit(const Params &p)
     crispVmcntMin = UINT64_MAX;
     crispVmcntMax = 0;
     crispVmcntSum = 0;
+    crispTotalIssuedMin = UINT64_MAX;
+    crispTotalIssuedMax = 0;
+    crispTotalIssuedSum = 0;
     crispInflightStoresMin = UINT64_MAX;
     crispInflightStoresMax = 0;
     crispInflightStoresSum = 0;
+    crispValuIssuedCount = 0;
+    crispSaluIssuedCount = 0;
+    crispVmemIssuedCount = 0;
+    crispSmemIssuedCount = 0;
+    crispLdsIssuedCount = 0;
     std::fill_n(crispIssuedHistogram, CrispMaxComputeUnits, 0);
     std::fill_n(crispUtilHistogram, 10, 0);
     std::fill_n(crispCaseHistogram, 9, 0);
     std::fill_n(crispVmcntHistogram, 6, 0);
+    std::fill_n(crispTotalIssuedHistogram, 9, 0);
     std::fill_n(crispInflightStoresHistogram, 9, 0);
 }
 
@@ -1163,6 +1172,29 @@ ComputeUnit::crispWindowEval(Tick curTick)
             (unsigned long long)crispVmcntHistogram[5]);
 
     {
+        float avg_total_issued = crispActiveCycleCount > 0 ?
+            (float)crispTotalIssuedSum / crispActiveCycleCount : 0.0f;
+        DPRINTF(CRISPdvfs,
+                "[CU%d] CRISP TotalIssued: "
+                "min=%llu max=%llu avg=%.2f "
+                "histogram=[0:%llu,1:%llu,2:%llu,3:%llu,"
+                "4:%llu,5:%llu,6:%llu,7:%llu,8:%llu]\n",
+                cu_id,
+                (unsigned long long)crispTotalIssuedMin,
+                (unsigned long long)crispTotalIssuedMax,
+                avg_total_issued,
+                (unsigned long long)crispTotalIssuedHistogram[0],
+                (unsigned long long)crispTotalIssuedHistogram[1],
+                (unsigned long long)crispTotalIssuedHistogram[2],
+                (unsigned long long)crispTotalIssuedHistogram[3],
+                (unsigned long long)crispTotalIssuedHistogram[4],
+                (unsigned long long)crispTotalIssuedHistogram[5],
+                (unsigned long long)crispTotalIssuedHistogram[6],
+                (unsigned long long)crispTotalIssuedHistogram[7],
+                (unsigned long long)crispTotalIssuedHistogram[8]);
+    }
+
+    {
         uint64_t gm_q = globalMemoryPipe.getGmQueueSize();
         uint64_t step = (gm_q + 7) / 8;
         if (step == 0) {
@@ -1218,6 +1250,17 @@ ComputeUnit::crispWindowEval(Tick curTick)
                 (unsigned long long)crispInflightStoresHistogram[8]);
     }
 
+    DPRINTF(CRISPdvfs,
+            "[CU%d] CRISP PerUnitIssued: "
+            "VALU=%llu SALU=%llu "
+            "VMEM=%llu SMEM=%llu LDS=%llu\n",
+            cu_id,
+            (unsigned long long)crispValuIssuedCount,
+            (unsigned long long)crispSaluIssuedCount,
+            (unsigned long long)crispVmemIssuedCount,
+            (unsigned long long)crispSmemIssuedCount,
+            (unsigned long long)crispLdsIssuedCount);
+
     tMemory = 0;
     tStallLCP = 0;
     tIdle = 0;
@@ -1231,13 +1274,22 @@ ComputeUnit::crispWindowEval(Tick curTick)
     crispVmcntMin = UINT64_MAX;
     crispVmcntMax = 0;
     crispVmcntSum = 0;
+    crispTotalIssuedMin = UINT64_MAX;
+    crispTotalIssuedMax = 0;
+    crispTotalIssuedSum = 0;
     crispInflightStoresMin = UINT64_MAX;
     crispInflightStoresMax = 0;
     crispInflightStoresSum = 0;
+    crispValuIssuedCount = 0;
+    crispSaluIssuedCount = 0;
+    crispVmemIssuedCount = 0;
+    crispSmemIssuedCount = 0;
+    crispLdsIssuedCount = 0;
     std::fill_n(crispIssuedHistogram, CrispMaxComputeUnits, 0);
     std::fill_n(crispUtilHistogram, 10, 0);
     std::fill_n(crispCaseHistogram, 9, 0);
     std::fill_n(crispVmcntHistogram, 6, 0);
+    std::fill_n(crispTotalIssuedHistogram, 9, 0);
     std::fill_n(crispInflightStoresHistogram, 9, 0);
 }
 
@@ -1298,6 +1350,49 @@ ComputeUnit::crispLabelCycle()
         float compute_utilization =
             (float)compute_units_issued / total_compute_units;
         compute_issued = (compute_utilization >= crispThreshold);
+
+        uint64_t valu_issued = 0;
+        for (int unitId = 0; unitId < numVectorALUs; unitId++) {
+            if (scheduleToExecute.dispatchStatus(unitId) == EXREADY) {
+                valu_issued++;
+            }
+        }
+
+        uint64_t salu_issued = 0;
+        for (int unitId = numVectorALUs;
+             unitId < numVectorALUs + numScalarALUs; unitId++) {
+            if (scheduleToExecute.dispatchStatus(unitId) == EXREADY) {
+                salu_issued++;
+            }
+        }
+
+        uint64_t vmem_issued = 0;
+        for (int i = 0; i < numVectorGlobalMemUnits; i++) {
+            int unitId = firstMemUnit() + i;
+            if (scheduleToExecute.dispatchStatus(unitId) == EXREADY) {
+                vmem_issued++;
+            }
+        }
+
+        uint64_t lds_issued = 0;
+        for (int i = 0; i < numVectorSharedMemUnits; i++) {
+            int unitId = firstMemUnit() + numVectorGlobalMemUnits + i;
+            if (scheduleToExecute.dispatchStatus(unitId) == EXREADY) {
+                lds_issued++;
+            }
+        }
+
+        uint64_t smem_issued = 0;
+        for (int i = 0; i < numScalarMemUnits; i++) {
+            int unitId = firstMemUnit() + numVectorGlobalMemUnits +
+                numVectorSharedMemUnits + i;
+            if (scheduleToExecute.dispatchStatus(unitId) == EXREADY) {
+                smem_issued++;
+            }
+        }
+
+        uint64_t total_units_issued = valu_issued + salu_issued +
+            vmem_issued + lds_issued + smem_issued;
 
         // Check vmcnt stall across all active wavefronts
         uint64_t vmcnt_stalled_count = 0;
@@ -1360,6 +1455,13 @@ ComputeUnit::crispLabelCycle()
         }
         crispVmcntHistogram[vmcnt_bucket]++;
 
+        crispTotalIssuedMin = std::min(crispTotalIssuedMin,
+                                       total_units_issued);
+        crispTotalIssuedMax = std::max(crispTotalIssuedMax,
+                                       total_units_issued);
+        crispTotalIssuedSum += total_units_issued;
+        crispTotalIssuedHistogram[total_units_issued]++;
+
         // Update inflight stores stats
         uint64_t inflight_stores = globalMemoryPipe.getInflightStores();
         crispInflightStoresMin = std::min(crispInflightStoresMin,
@@ -1382,6 +1484,12 @@ ComputeUnit::crispLabelCycle()
             }
         }
         crispInflightStoresHistogram[store_bucket]++;
+
+        crispValuIssuedCount += valu_issued;
+        crispSaluIssuedCount += salu_issued;
+        crispVmemIssuedCount += vmem_issued;
+        crispSmemIssuedCount += smem_issued;
+        crispLdsIssuedCount += lds_issued;
 
         // Update active cycle count
         crispActiveCycleCount++;

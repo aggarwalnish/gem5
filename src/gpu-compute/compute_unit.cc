@@ -1349,7 +1349,7 @@ ComputeUnit::crispLabelCycle()
         }
         float compute_utilization =
             (float)compute_units_issued / total_compute_units;
-        compute_issued = (compute_utilization >= crispThreshold);
+        compute_issued = (compute_units_issued >= 1);
 
         uint64_t valu_issued = 0;
         for (int unitId = 0; unitId < numVectorALUs; unitId++) {
@@ -1415,7 +1415,7 @@ ComputeUnit::crispLabelCycle()
              globalMemoryPipe.getGmQueueSize());
 
         // Label the cycle
-        if (!compute_issued && vmcnt_stall_exists) {
+        if (!compute_issued && vmcnt_stall_exists && !crispTick.empty()) {
             tMemory++;
             tStallLCP++;
         }

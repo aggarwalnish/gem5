@@ -1027,6 +1027,11 @@ class ComputeUnit : public ClockedObject
     uint64_t crispVmcntMax;
     uint64_t crispVmcntSum;
     uint64_t crispVmcntHistogram[6];
+    uint64_t crispInflightStoresMin;
+    uint64_t crispInflightStoresMax;
+    uint64_t crispInflightStoresSum;
+    uint64_t crispInflightStoresHistogram[9];
+    // Buckets: 0, then 8 dynamic ranges over (1..gmQueueSize)
     uint64_t crispActiveCycleCount;
 
     // Per-address miss tracking

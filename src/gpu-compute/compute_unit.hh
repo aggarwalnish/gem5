@@ -1042,6 +1042,12 @@ class ComputeUnit : public ClockedObject
     uint64_t crispVmemIssuedCount;
     uint64_t crispSmemIssuedCount;
     uint64_t crispLdsIssuedCount;
+    uint64_t crispLoadIssued;
+    uint64_t crispStoreIssued;
+    uint64_t crispL1LoadHit;
+    uint64_t crispL1LoadMiss;
+    uint64_t crispL2LoadHit;
+    uint64_t crispL2LoadMiss;
 
     // Per-address miss tracking
     std::unordered_map<Addr, uint64_t> crispTs;
@@ -1102,6 +1108,12 @@ class ComputeUnit : public ClockedObject
     void crispLabelCycle();
     void crispRecordMiss(Addr addr);
     void crispRecordReturn(Addr addr);
+    void crispIncLoadIssued() { crispLoadIssued++; }
+    void crispIncStoreIssued() { crispStoreIssued++; }
+    void crispIncL1LoadHit() { crispL1LoadHit++; }
+    void crispIncL1LoadMiss() { crispL1LoadMiss++; }
+    void crispIncL2LoadHit() { crispL2LoadHit++; }
+    void crispIncL2LoadMiss() { crispL2LoadMiss++; }
     int activeWaves;
 
     struct ComputeUnitStats : public statistics::Group

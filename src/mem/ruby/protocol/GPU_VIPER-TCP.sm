@@ -726,6 +726,18 @@ machine(MachineType:TCP, "GPU TCP (L1 Data Cache)")
     L1cache.profileDemandHit();
   }
 
+  action(cl_crispLoadIssued, "cli", desc="CRISP load issued") {
+    crispLoadIssuedImpl(address, machineID);
+  }
+
+  action(clh_crispL1Hit, "clh", desc="CRISP L1 load hit") {
+    crispL1HitImpl(address, machineID);
+  }
+
+  action(cs_crispStoreIssued, "csi", desc="CRISP store issued") {
+    crispStoreIssuedImpl(address, machineID);
+  }
+
   // Transitions
   // ArrayRead/Write assumptions:
   // All requests read Tag Array
@@ -748,6 +760,7 @@ machine(MachineType:TCP, "GPU TCP (L1 Data Cache)")
   transition(I, Load) {TagArrayRead} {
     n_issueRdBlk;
     uu_profileDataMiss;
+    cl_crispLoadIssued;
     p_popMandatoryQueue;
   }
 
@@ -755,6 +768,8 @@ machine(MachineType:TCP, "GPU TCP (L1 Data Cache)")
     l_loadDoneHit;
     mru_updateMRU;
     uu_profileDataHit;
+    cl_crispLoadIssued;
+    clh_crispL1Hit;
     p_popMandatoryQueue;
   }
 
@@ -765,6 +780,7 @@ machine(MachineType:TCP, "GPU TCP (L1 Data Cache)")
     uu_profileDataMiss;
     ic_invCache;
     n_issueRdBlk;
+    cl_crispLoadIssued;
     p_popMandatoryQueue;
   }
 
@@ -774,6 +790,7 @@ machine(MachineType:TCP, "GPU TCP (L1 Data Cache)")
   transition(I, LoadBypassEvict) {TagArrayRead, TagArrayWrite} {
     uu_profileDataMiss;
     n_issueRdBlk;
+    cl_crispLoadIssued;
     p_popMandatoryQueue;
   }
 
@@ -788,6 +805,7 @@ machine(MachineType:TCP, "GPU TCP (L1 Data Cache)")
     sna_storeDoneMissNoAlloc;
     uu_profileDataMiss;
     wtna_writeThroughNoAlloc;
+    cs_crispStoreIssued;
     p_popMandatoryQueue;
   }
 
@@ -797,6 +815,7 @@ machine(MachineType:TCP, "GPU TCP (L1 Data Cache)")
     uu_profileDataHit;
     wt_writeThrough;
     ic_invCache;
+    cs_crispStoreIssued;
     p_popMandatoryQueue;
   }
 

@@ -593,7 +593,108 @@ GPUCoalescer::crispMissDetected(Addr addr)
     PacketPtr pkt = it->second.front()->getFirstPkt();
     GPUDynInstPtr inst = getDynInst(pkt);
     if (inst && inst->computeUnit()) {
+        inst->computeUnit()->crispIncL1LoadMiss();
         inst->computeUnit()->crispRecordMiss(line_addr);
+    }
+}
+
+void
+GPUCoalescer::crispL2MissDetected(Addr addr)
+{
+    if (m_usingRubyTester) {
+        return;
+    }
+
+    Addr line_addr = makeLineAddress(addr);
+    auto it = coalescedTable.find(line_addr);
+    if (it == coalescedTable.end() || it->second.empty()) {
+        return;
+    }
+
+    PacketPtr pkt = it->second.front()->getFirstPkt();
+    GPUDynInstPtr inst = getDynInst(pkt);
+    if (inst && inst->computeUnit()) {
+        inst->computeUnit()->crispIncL2LoadMiss();
+    }
+}
+
+void
+GPUCoalescer::crispL2HitDetected(Addr addr)
+{
+    if (m_usingRubyTester) {
+        return;
+    }
+
+    Addr line_addr = makeLineAddress(addr);
+    auto it = coalescedTable.find(line_addr);
+    if (it == coalescedTable.end() || it->second.empty()) {
+        return;
+    }
+
+    PacketPtr pkt = it->second.front()->getFirstPkt();
+    GPUDynInstPtr inst = getDynInst(pkt);
+    if (inst && inst->computeUnit()) {
+        inst->computeUnit()->crispIncL2LoadHit();
+    }
+}
+
+void
+GPUCoalescer::crispLoadIssued(Addr addr)
+{
+    if (m_usingRubyTester) {
+        return;
+    }
+
+    Addr line_addr = makeLineAddress(addr);
+    auto it = coalescedTable.find(line_addr);
+    if (it == coalescedTable.end() || it->second.empty()) {
+        return;
+    }
+
+    PacketPtr pkt = it->second.front()->getFirstPkt();
+    GPUDynInstPtr inst = getDynInst(pkt);
+    if (inst && inst->computeUnit()) {
+        inst->computeUnit()->crispIncLoadIssued();
+    }
+}
+
+void
+GPUCoalescer::crispL1HitDetected(Addr addr)
+{
+    if (m_usingRubyTester) {
+        return;
+    }
+
+    Addr line_addr = makeLineAddress(addr);
+    auto it = coalescedTable.find(line_addr);
+    if (it == coalescedTable.end() || it->second.empty()) {
+        return;
+    }
+
+    PacketPtr pkt = it->second.front()->getFirstPkt();
+    GPUDynInstPtr inst = getDynInst(pkt);
+    if (inst && inst->computeUnit()) {
+        inst->computeUnit()->crispIncL1LoadHit();
+    }
+}
+
+void
+GPUCoalescer::crispStoreIssued(Addr addr)
+{
+    if (m_usingRubyTester) {
+        return;
+    }
+
+    Addr line_addr = makeLineAddress(addr);
+    auto it = coalescedTable.find(line_addr);
+    if (it == coalescedTable.end() || it->second.empty()) {
+        return;
+    }
+
+    PacketPtr pkt = it->second.front()->getFirstPkt();
+    GPUDynInstPtr inst = getDynInst(pkt);
+    if (inst && inst->computeUnit()) {
+        inst->computeUnit()->crispIncStoreIssued();
     }
 }
 

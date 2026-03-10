@@ -458,6 +458,7 @@ machine(MachineType:TCC, "TCC Cache")
 
   action(sd_sendData, "sd", desc="send Shared response") {
     peek(coreRequestNetwork_in, CPURequestMsg) {
+      crispL2HitDetectedImpl(address, in_msg.Requestor);
       enqueue(responseToCore_out, ResponseMsg, l2_response_latency) {
         out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:TDSysResp;

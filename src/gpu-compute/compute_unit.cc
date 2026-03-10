@@ -435,6 +435,12 @@ ComputeUnit::ComputeUnit(const Params &p)
     crispVmemIssuedCount = 0;
     crispSmemIssuedCount = 0;
     crispLdsIssuedCount = 0;
+    crispLoadIssued = 0;
+    crispStoreIssued = 0;
+    crispL1LoadHit = 0;
+    crispL1LoadMiss = 0;
+    crispL2LoadHit = 0;
+    crispL2LoadMiss = 0;
     std::fill_n(crispIssuedHistogram, CrispMaxComputeUnits, 0);
     std::fill_n(crispUtilHistogram, 10, 0);
     std::fill_n(crispCaseHistogram, 9, 0);
@@ -1249,6 +1255,23 @@ ComputeUnit::crispWindowEval(Tick curTick)
                 (unsigned long long)b8_hi,
                 (unsigned long long)crispInflightStoresHistogram[8]);
     }
+
+    DPRINTF(CRISPdvfs,
+            "[CU%d] CRISP Traffic: "
+            "LoadIssued=%llu StoreIssued=%llu "
+            "L1Hit=%llu L1Miss=%llu "
+            "L2Hit=%llu L2Miss=%llu "
+            "Check1(L1Hit+L1Miss-Load)=%lld "
+            "Check2(L2Hit+L2Miss-L1Miss)=%lld\n",
+            cu_id,
+            (unsigned long long)crispLoadIssued,
+            (unsigned long long)crispStoreIssued,
+            (unsigned long long)crispL1LoadHit,
+            (unsigned long long)crispL1LoadMiss,
+            (unsigned long long)crispL2LoadHit,
+            (unsigned long long)crispL2LoadMiss,
+            (long long)(crispL1LoadHit + crispL1LoadMiss - crispLoadIssued),
+            (long long)(crispL2LoadHit + crispL2LoadMiss - crispL1LoadMiss));
 
     DPRINTF(CRISPdvfs,
             "[CU%d] CRISP PerUnitIssued: "

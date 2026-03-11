@@ -331,6 +331,7 @@ getRequestorID(RequestPtr req)
 }
 
 void crispMissDetectedFromTCCImpl(Addr addr, MachineID requestor);
+void crispL1MissImpl(Addr addr, MachineID requestor);
 void crispL2HitDetectedImpl(Addr addr, MachineID requestor);
 void crispLoadIssuedImpl(Addr addr, MachineID requestor);
 void crispL1HitImpl(Addr addr, MachineID requestor);

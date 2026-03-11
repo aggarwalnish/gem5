@@ -318,6 +318,7 @@ class GPUCoalescer : public RubyPort
                       bool externalHit);
 
     void crispMissDetected(Addr addr);
+    void crispL1MissDetected(Addr addr);
     void crispL2MissDetected(Addr addr);
     void crispL2HitDetected(Addr addr);
     void crispLoadIssued(Addr addr);

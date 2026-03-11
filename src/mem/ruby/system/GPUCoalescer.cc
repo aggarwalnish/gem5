@@ -593,8 +593,27 @@ GPUCoalescer::crispMissDetected(Addr addr)
     PacketPtr pkt = it->second.front()->getFirstPkt();
     GPUDynInstPtr inst = getDynInst(pkt);
     if (inst && inst->computeUnit()) {
-        inst->computeUnit()->crispIncL1LoadMiss();
         inst->computeUnit()->crispRecordMiss(line_addr);
+    }
+}
+
+void
+GPUCoalescer::crispL1MissDetected(Addr addr)
+{
+    if (m_usingRubyTester) {
+        return;
+    }
+
+    Addr line_addr = makeLineAddress(addr);
+    auto it = coalescedTable.find(line_addr);
+    if (it == coalescedTable.end() || it->second.empty()) {
+        return;
+    }
+
+    PacketPtr pkt = it->second.front()->getFirstPkt();
+    GPUDynInstPtr inst = getDynInst(pkt);
+    if (inst && inst->computeUnit()) {
+        inst->computeUnit()->crispIncL1LoadMiss();
     }
 }
 

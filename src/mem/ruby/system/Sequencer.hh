@@ -126,6 +126,7 @@ class Sequencer : public RubyPort
                       const Cycles firstResponseTime = Cycles(0));
 
     void crispMissDetected(Addr addr);
+    void crispL1MissDetected(Addr addr);
     void crispL2MissDetected(Addr addr);
     void crispL2HitDetected(Addr addr);
     void crispLoadIssued(Addr addr);

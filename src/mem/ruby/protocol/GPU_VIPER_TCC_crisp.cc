@@ -46,6 +46,35 @@ crispMissDetectedFromTCCImpl(Addr addr, MachineID requestor)
 }
 
 void
+crispL1MissImpl(Addr addr, MachineID requestor)
+{
+    RubySystem *rs = g_ruby_system;
+    if (!rs) {
+        return;
+    }
+
+    if (requestor.type >= MachineType_NUM) {
+        return;
+    }
+
+    auto &by_num = rs->m_abstract_controls[requestor.type];
+    auto it = by_num.find(requestor.num);
+    if (it == by_num.end() || !it->second) {
+        return;
+    }
+
+    AbstractController *cntrl = it->second;
+    if (auto *coal = cntrl->getGPUCoalescer()) {
+        coal->crispL1MissDetected(addr);
+        return;
+    }
+    if (auto *seq = cntrl->getCPUSequencer()) {
+        seq->crispL1MissDetected(addr);
+        return;
+    }
+}
+
+void
 crispL2HitDetectedImpl(Addr addr, MachineID requestor)
 {
     RubySystem *rs = g_ruby_system;

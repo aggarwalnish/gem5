@@ -730,6 +730,10 @@ machine(MachineType:TCP, "GPU TCP (L1 Data Cache)")
     crispLoadIssuedImpl(address, machineID);
   }
 
+  action(clm_crispL1Miss, "clm", desc="CRISP L1 load miss") {
+    crispL1MissImpl(address, machineID);
+  }
+
   action(clh_crispL1Hit, "clh", desc="CRISP L1 load hit") {
     crispL1HitImpl(address, machineID);
   }
@@ -761,6 +765,7 @@ machine(MachineType:TCP, "GPU TCP (L1 Data Cache)")
     n_issueRdBlk;
     uu_profileDataMiss;
     cl_crispLoadIssued;
+    clm_crispL1Miss;
     p_popMandatoryQueue;
   }
 
@@ -781,6 +786,7 @@ machine(MachineType:TCP, "GPU TCP (L1 Data Cache)")
     ic_invCache;
     n_issueRdBlk;
     cl_crispLoadIssued;
+    clm_crispL1Miss;
     p_popMandatoryQueue;
   }
 
@@ -791,6 +797,7 @@ machine(MachineType:TCP, "GPU TCP (L1 Data Cache)")
     uu_profileDataMiss;
     n_issueRdBlk;
     cl_crispLoadIssued;
+    clm_crispL1Miss;
     p_popMandatoryQueue;
   }
 

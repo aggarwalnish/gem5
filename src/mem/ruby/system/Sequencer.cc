@@ -664,7 +664,6 @@ Sequencer::crispMissDetected(Addr addr)
     if (auto *sqc_ss =
             dynamic_cast<ComputeUnit::SQCPort::SenderState *>(pred)) {
         if (sqc_ss->wavefront && sqc_ss->wavefront->computeUnit) {
-            sqc_ss->wavefront->computeUnit->crispIncL1LoadMiss();
             sqc_ss->wavefront->computeUnit->crispRecordMiss(line_addr);
         }
         return;
@@ -674,8 +673,46 @@ Sequencer::crispMissDetected(Addr addr)
             dynamic_cast<ComputeUnit::ScalarDataPort::SenderState *>(pred)) {
         if (scalar_ss->_gpuDynInst &&
             scalar_ss->_gpuDynInst->computeUnit()) {
-            scalar_ss->_gpuDynInst->computeUnit()->crispIncL1LoadMiss();
             scalar_ss->_gpuDynInst->computeUnit()->crispRecordMiss(line_addr);
+        }
+        return;
+    }
+}
+
+void
+Sequencer::crispL1MissDetected(Addr addr)
+{
+    Addr line_addr = makeLineAddress(addr);
+    auto it = m_RequestTable.find(line_addr);
+    if (it == m_RequestTable.end() || it->second.empty()) {
+        return;
+    }
+
+    PacketPtr pkt = it->second.front().pkt;
+    if (!pkt || !pkt->senderState) {
+        return;
+    }
+
+    RubyPort::SenderState *ss =
+        safe_cast<RubyPort::SenderState *>(pkt->senderState);
+    Packet::SenderState *pred = ss->predecessor;
+    if (!pred) {
+        return;
+    }
+
+    if (auto *sqc_ss =
+            dynamic_cast<ComputeUnit::SQCPort::SenderState *>(pred)) {
+        if (sqc_ss->wavefront && sqc_ss->wavefront->computeUnit) {
+            sqc_ss->wavefront->computeUnit->crispIncL1LoadMiss();
+        }
+        return;
+    }
+
+    if (auto *scalar_ss =
+            dynamic_cast<ComputeUnit::ScalarDataPort::SenderState *>(pred)) {
+        if (scalar_ss->_gpuDynInst &&
+            scalar_ss->_gpuDynInst->computeUnit()) {
+            scalar_ss->_gpuDynInst->computeUnit()->crispIncL1LoadMiss();
         }
         return;
     }

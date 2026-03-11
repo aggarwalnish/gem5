@@ -327,6 +327,18 @@ machine(MachineType:SQC, "GPU SQC (L1 I Cache)")
     L1cache.profileDemandHit();
   }
 
+  action(clm_crispL1Miss, "clm", desc="CRISP L1 load miss") {
+    crispL1MissImpl(address, machineID);
+  }
+
+  action(cl_crispLoadIssued, "cli", desc="CRISP load issued") {
+    crispLoadIssuedImpl(address, machineID);
+  }
+
+  action(clh_crispL1Hit, "clh", desc="CRISP L1 load hit") {
+    crispL1HitImpl(address, machineID);
+  }
+
   // Transitions
 
   // transitions from base
@@ -354,6 +366,8 @@ machine(MachineType:SQC, "GPU SQC (L1 I Cache)")
   transition(I, Fetch) {TagArrayRead, TagArrayWrite} {
     nS_issueRdBlkS;
     uu_profileDataMiss; // since line wasn't in SQC, we missed
+    cl_crispLoadIssued;
+    clm_crispL1Miss;
     p_popMandatoryQueue;
   }
 
@@ -362,6 +376,8 @@ machine(MachineType:SQC, "GPU SQC (L1 I Cache)")
     l_loadDoneHit;
     mru_updateMRU;
     uu_profileDataHit; // line was in SQC, so we hit
+    cl_crispLoadIssued;
+    clh_crispL1Hit;
     p_popMandatoryQueue;
   }
 }

@@ -41,6 +41,7 @@ crispMissDetectedFromTCCImpl(Addr addr, MachineID requestor)
     if (auto *seq = cntrl->getCPUSequencer()) {
         seq->crispMissDetected(addr);
         seq->crispL2MissDetected(addr);
+        return;
     }
 }
 
@@ -69,6 +70,7 @@ crispL2HitDetectedImpl(Addr addr, MachineID requestor)
     }
     if (auto *seq = cntrl->getCPUSequencer()) {
         seq->crispL2HitDetected(addr);
+        return;
     }
 }
 
@@ -97,6 +99,7 @@ crispLoadIssuedImpl(Addr addr, MachineID requestor)
     }
     if (auto *seq = cntrl->getCPUSequencer()) {
         seq->crispLoadIssued(addr);
+        return;
     }
 }
 
@@ -125,6 +128,7 @@ crispL1HitImpl(Addr addr, MachineID requestor)
     }
     if (auto *seq = cntrl->getCPUSequencer()) {
         seq->crispL1HitDetected(addr);
+        return;
     }
 }
 
@@ -153,6 +157,7 @@ crispStoreIssuedImpl(Addr addr, MachineID requestor)
     }
     if (auto *seq = cntrl->getCPUSequencer()) {
         seq->crispStoreIssued(addr);
+        return;
     }
 }
 

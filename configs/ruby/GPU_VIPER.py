@@ -260,7 +260,7 @@ class SQCCntrl(GPU_VIPER_SQC_Controller, CntrlBase):
         self.sequencer.dcache = self.L1cache
         self.sequencer.ruby_system = ruby_system
         self.sequencer.support_data_reqs = False
-        self.sequencer.is_cpu_sequencer = False
+        self.sequencer.is_cpu_sequencer = True
         if options.sqc_deadlock_threshold:
             self.sequencer.deadlock_threshold = options.sqc_deadlock_threshold
 

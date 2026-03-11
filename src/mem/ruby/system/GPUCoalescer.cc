@@ -594,6 +594,7 @@ GPUCoalescer::crispMissDetected(Addr addr)
     GPUDynInstPtr inst = getDynInst(pkt);
     if (inst && inst->computeUnit()) {
         inst->computeUnit()->crispRecordMiss(line_addr);
+        inst->computeUnit()->crispIncVmemMissCount();
     }
 }
 

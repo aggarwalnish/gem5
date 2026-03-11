@@ -441,6 +441,8 @@ ComputeUnit::ComputeUnit(const Params &p)
     crispL1LoadMiss = 0;
     crispL2LoadHit = 0;
     crispL2LoadMiss = 0;
+    crispVmemMissCount = 0;
+    crispSmemMissCount = 0;
     std::fill_n(crispIssuedHistogram, CrispMaxComputeUnits, 0);
     std::fill_n(crispUtilHistogram, 10, 0);
     std::fill_n(crispCaseHistogram, 9, 0);
@@ -1274,6 +1276,13 @@ ComputeUnit::crispWindowEval(Tick curTick)
             (long long)(crispL2LoadHit + crispL2LoadMiss - crispL1LoadMiss));
 
     DPRINTF(CRISPdvfs,
+            "[CU%d] CRISP MissPath: "
+            "VmemMiss=%llu SmemMiss=%llu\n",
+            cu_id,
+            (unsigned long long)crispVmemMissCount,
+            (unsigned long long)crispSmemMissCount);
+
+    DPRINTF(CRISPdvfs,
             "[CU%d] CRISP PerUnitIssued: "
             "VALU=%llu SALU=%llu "
             "VMEM=%llu SMEM=%llu LDS=%llu\n",
@@ -1314,6 +1323,8 @@ ComputeUnit::crispWindowEval(Tick curTick)
     crispL1LoadMiss = 0;
     crispL2LoadHit = 0;
     crispL2LoadMiss = 0;
+    crispVmemMissCount = 0;
+    crispSmemMissCount = 0;
     std::fill_n(crispIssuedHistogram, CrispMaxComputeUnits, 0);
     std::fill_n(crispUtilHistogram, 10, 0);
     std::fill_n(crispCaseHistogram, 9, 0);

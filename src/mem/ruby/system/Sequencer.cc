@@ -665,6 +665,7 @@ Sequencer::crispMissDetected(Addr addr)
             dynamic_cast<ComputeUnit::SQCPort::SenderState *>(pred)) {
         if (sqc_ss->wavefront && sqc_ss->wavefront->computeUnit) {
             sqc_ss->wavefront->computeUnit->crispRecordMiss(line_addr);
+            sqc_ss->wavefront->computeUnit->crispIncSmemMissCount();
         }
         return;
     }
@@ -674,6 +675,7 @@ Sequencer::crispMissDetected(Addr addr)
         if (scalar_ss->_gpuDynInst &&
             scalar_ss->_gpuDynInst->computeUnit()) {
             scalar_ss->_gpuDynInst->computeUnit()->crispRecordMiss(line_addr);
+            scalar_ss->_gpuDynInst->computeUnit()->crispIncSmemMissCount();
         }
         return;
     }

@@ -1308,6 +1308,12 @@ ComputeUnit::crispWindowEval(Tick curTick)
     crispVmemIssuedCount = 0;
     crispSmemIssuedCount = 0;
     crispLdsIssuedCount = 0;
+    crispLoadIssued = 0;
+    crispStoreIssued = 0;
+    crispL1LoadHit = 0;
+    crispL1LoadMiss = 0;
+    crispL2LoadHit = 0;
+    crispL2LoadMiss = 0;
     std::fill_n(crispIssuedHistogram, CrispMaxComputeUnits, 0);
     std::fill_n(crispUtilHistogram, 10, 0);
     std::fill_n(crispCaseHistogram, 9, 0);

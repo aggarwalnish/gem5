@@ -380,7 +380,7 @@ ComputeUnit::ComputeUnit(const Params &p)
     // Used for periodic pipeline prints
     execCycles = 0;
     {
-        const std::string &eval = "1ms"; //p.evaluation_period;
+        const std::string &eval = "50us"; //p.evaluation_period;
         fatal_if(eval.size() < 3,
                  "Invalid evaluation_period (expected <num><unit>): %s",
                  eval);
@@ -424,6 +424,10 @@ ComputeUnit::ComputeUnit(const Params &p)
     crispVmcntMin = UINT64_MAX;
     crispVmcntMax = 0;
     crispVmcntSum = 0;
+    crispTickSizeMin = UINT64_MAX;
+    crispTickSizeMax = 0;
+    crispTickSizeSum = 0;
+    crispTickSizeSamples = 0;
     crispTotalIssuedMin = UINT64_MAX;
     crispTotalIssuedMax = 0;
     crispTotalIssuedSum = 0;
@@ -447,6 +451,7 @@ ComputeUnit::ComputeUnit(const Params &p)
     std::fill_n(crispUtilHistogram, 10, 0);
     std::fill_n(crispCaseHistogram, 9, 0);
     std::fill_n(crispVmcntHistogram, 6, 0);
+    std::fill_n(crispTickSizeHistogram, 6, 0);
     std::fill_n(crispTotalIssuedHistogram, 9, 0);
     std::fill_n(crispInflightStoresHistogram, 9, 0);
 }
@@ -1115,6 +1120,8 @@ ComputeUnit::crispWindowEval(Tick curTick)
         crispUtilSum / crispActiveCycleCount : 0.0f;
     float avg_vmcnt = crispActiveCycleCount > 0 ?
         (float)crispVmcntSum / crispActiveCycleCount : 0.0f;
+    float avg_tick_size = crispTickSizeSamples > 0 ?
+        (float)crispTickSizeSum / crispTickSizeSamples : 0.0f;
     float avg_inflight_stores = crispActiveCycleCount > 0 ?
         (float)crispInflightStoresSum / crispActiveCycleCount : 0.0f;
 
@@ -1178,6 +1185,20 @@ ComputeUnit::crispWindowEval(Tick curTick)
             (unsigned long long)crispVmcntHistogram[3],
             (unsigned long long)crispVmcntHistogram[4],
             (unsigned long long)crispVmcntHistogram[5]);
+
+    DPRINTF(CRISPdvfs, "CRISP TickSize: "
+            "min=%llu max=%llu avg=%.2f "
+            "histogram=[0:%llu,1-8:%llu,9-16:%llu,"
+            "17-24:%llu,25-32:%llu,33+:%llu]\n",
+            (unsigned long long)crispTickSizeMin,
+            (unsigned long long)crispTickSizeMax,
+            avg_tick_size,
+            (unsigned long long)crispTickSizeHistogram[0],
+            (unsigned long long)crispTickSizeHistogram[1],
+            (unsigned long long)crispTickSizeHistogram[2],
+            (unsigned long long)crispTickSizeHistogram[3],
+            (unsigned long long)crispTickSizeHistogram[4],
+            (unsigned long long)crispTickSizeHistogram[5]);
 
     {
         float avg_total_issued = crispActiveCycleCount > 0 ?
@@ -1306,6 +1327,10 @@ ComputeUnit::crispWindowEval(Tick curTick)
     crispVmcntMin = UINT64_MAX;
     crispVmcntMax = 0;
     crispVmcntSum = 0;
+    crispTickSizeMin = UINT64_MAX;
+    crispTickSizeMax = 0;
+    crispTickSizeSum = 0;
+    crispTickSizeSamples = 0;
     crispTotalIssuedMin = UINT64_MAX;
     crispTotalIssuedMax = 0;
     crispTotalIssuedSum = 0;
@@ -1329,6 +1354,7 @@ ComputeUnit::crispWindowEval(Tick curTick)
     std::fill_n(crispUtilHistogram, 10, 0);
     std::fill_n(crispCaseHistogram, 9, 0);
     std::fill_n(crispVmcntHistogram, 6, 0);
+    std::fill_n(crispTickSizeHistogram, 6, 0);
     std::fill_n(crispTotalIssuedHistogram, 9, 0);
     std::fill_n(crispInflightStoresHistogram, 9, 0);
 }
@@ -1358,6 +1384,28 @@ ComputeUnit::crispRecordReturn(Addr addr)
 void
 ComputeUnit::crispLabelCycle()
 {
+    uint64_t tracked_misses = crispTick.size();
+    crispTickSizeMin = std::min(crispTickSizeMin, tracked_misses);
+    crispTickSizeMax = std::max(crispTickSizeMax, tracked_misses);
+    crispTickSizeSum += tracked_misses;
+    crispTickSizeSamples++;
+
+    int tick_size_bucket = 0;
+    if (tracked_misses == 0) {
+        tick_size_bucket = 0;
+    } else if (tracked_misses <= 8) {
+        tick_size_bucket = 1;
+    } else if (tracked_misses <= 16) {
+        tick_size_bucket = 2;
+    } else if (tracked_misses <= 24) {
+        tick_size_bucket = 3;
+    } else if (tracked_misses <= 32) {
+        tick_size_bucket = 4;
+    } else {
+        tick_size_bucket = 5;
+    }
+    crispTickSizeHistogram[tick_size_bucket]++;
+
     bool any_active = false;
     for (int i = 0; i < numVectorALUs; i++) {
         for (int j = 0; j < shader->n_wf; j++) {

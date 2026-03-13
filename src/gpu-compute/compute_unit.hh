@@ -1027,6 +1027,11 @@ class ComputeUnit : public ClockedObject
     uint64_t crispVmcntMax;
     uint64_t crispVmcntSum;
     uint64_t crispVmcntHistogram[6];
+    uint64_t crispTickSizeMin;
+    uint64_t crispTickSizeMax;
+    uint64_t crispTickSizeSum;
+    uint64_t crispTickSizeHistogram[6];
+    uint64_t crispTickSizeSamples;
     uint64_t crispTotalIssuedMin;
     uint64_t crispTotalIssuedMax;
     uint64_t crispTotalIssuedSum;

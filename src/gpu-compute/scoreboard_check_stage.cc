@@ -299,6 +299,23 @@ ScoreboardCheckStage::exec()
                 toSchedule.markWFReady(curWave, exeResType);
             } else {
                 curWave->lastInstRdyStatus = rdyStatusStr(rdyStatus);
+                if (curWave->instructionBuffer.empty()) {
+                    DPRINTF(GPUSched,
+                            "readyList stall: WF[%d][%d] WV[%d] "
+                            "reason=%s ib=empty\n",
+                            curWave->simdId, curWave->wfSlotId,
+                            curWave->wfDynId, rdyStatusStr(rdyStatus));
+                } else {
+                    GPUDynInstPtr next = curWave->nextInstr();
+                    std::string next_inst = next ?
+                        next->disassemble() : std::string("<none>");
+                    DPRINTF(GPUSched,
+                            "readyList stall: WF[%d][%d] WV[%d] "
+                            "reason=%s next=%s\n",
+                            curWave->simdId, curWave->wfSlotId,
+                            curWave->wfDynId, rdyStatusStr(rdyStatus),
+                            next_inst.c_str());
+                }
             }
             collectStatistics(rdyStatus);
         }

@@ -361,6 +361,10 @@ ScheduleStage::addToSchList(int exeType, const GPUDynInstPtr &gpu_dyn_inst)
                 "SIMD[%d] WV[%d]: %d: %s\n",
                 exeType, wf->simdId, wf->wfDynId,
                 gpu_dyn_inst->seqNum(), gpu_dyn_inst->disassemble());
+        DPRINTF(GPUSched, "schList[%d]: add stall: WF[%d][%d] WV[%d] "
+                "vrf_access=%d srf_access=%d\n",
+                exeType, wf->simdId, wf->wfSlotId, wf->wfDynId,
+                accessVrf, accessSrf);
     }
     return false;
 }
@@ -440,15 +444,27 @@ ScheduleStage::dispatchReady(const GPUDynInstPtr &gpu_dyn_inst)
         // and is executed out of IB directly.
         if (gpu_dyn_inst->isScalar() && !scalarAluRdy) {
             stats.dispNrdyStalls[SCH_SCALAR_ALU_NRDY]++;
+            DPRINTF(GPUSched, "dispatchReady stall: WF[%d][%d] WV[%d] "
+                    "%d: %s reason=scalar_alu_busy\n",
+                    wf->simdId, wf->wfSlotId, wf->wfDynId,
+                    gpu_dyn_inst->seqNum(), gpu_dyn_inst->disassemble());
             return false;
         } else if (!gpu_dyn_inst->isScalar() && !vectorAluRdy) {
             stats.dispNrdyStalls[SCH_VECTOR_ALU_NRDY]++;
+            DPRINTF(GPUSched, "dispatchReady stall: WF[%d][%d] WV[%d] "
+                    "%d: %s reason=vector_alu_busy\n",
+                    wf->simdId, wf->wfSlotId, wf->wfDynId,
+                    gpu_dyn_inst->seqNum(), gpu_dyn_inst->disassemble());
             return false;
         }
     } else if (gpu_dyn_inst->isEndOfKernel()) {
         // EndPgm instruction
         if (gpu_dyn_inst->isScalar() && !scalarAluRdy) {
             stats.dispNrdyStalls[SCH_SCALAR_ALU_NRDY]++;
+            DPRINTF(GPUSched, "dispatchReady stall: WF[%d][%d] WV[%d] "
+                    "%d: %s reason=scalar_alu_busy\n",
+                    wf->simdId, wf->wfSlotId, wf->wfDynId,
+                    gpu_dyn_inst->seqNum(), gpu_dyn_inst->disassemble());
             return false;
         }
     } else if (gpu_dyn_inst->isBarrier() || gpu_dyn_inst->isBranch()
@@ -456,9 +472,17 @@ ScheduleStage::dispatchReady(const GPUDynInstPtr &gpu_dyn_inst)
         // Barrier, Branch, or ALU instruction
         if (gpu_dyn_inst->isScalar() && !scalarAluRdy) {
             stats.dispNrdyStalls[SCH_SCALAR_ALU_NRDY]++;
+            DPRINTF(GPUSched, "dispatchReady stall: WF[%d][%d] WV[%d] "
+                    "%d: %s reason=scalar_alu_busy\n",
+                    wf->simdId, wf->wfSlotId, wf->wfDynId,
+                    gpu_dyn_inst->seqNum(), gpu_dyn_inst->disassemble());
             return false;
         } else if (!gpu_dyn_inst->isScalar() && !vectorAluRdy) {
             stats.dispNrdyStalls[SCH_VECTOR_ALU_NRDY]++;
+            DPRINTF(GPUSched, "dispatchReady stall: WF[%d][%d] WV[%d] "
+                    "%d: %s reason=vector_alu_busy\n",
+                    wf->simdId, wf->wfSlotId, wf->wfDynId,
+                    gpu_dyn_inst->seqNum(), gpu_dyn_inst->disassemble());
             return false;
         }
     } else if (!gpu_dyn_inst->isScalar() && gpu_dyn_inst->isGlobalMem()) {
@@ -467,18 +491,34 @@ ScheduleStage::dispatchReady(const GPUDynInstPtr &gpu_dyn_inst)
         if (!glbMemIssueRdy) {
             rdy = false;
             stats.dispNrdyStalls[SCH_VECTOR_MEM_ISSUE_NRDY]++;
+            DPRINTF(GPUSched, "dispatchReady stall: WF[%d][%d] WV[%d] "
+                    "%d: %s reason=vector_mem_issue_busy\n",
+                    wf->simdId, wf->wfSlotId, wf->wfDynId,
+                    gpu_dyn_inst->seqNum(), gpu_dyn_inst->disassemble());
         }
         if (!glbMemBusRdy) {
             rdy = false;
             stats.dispNrdyStalls[SCH_VECTOR_MEM_BUS_BUSY_NRDY]++;
+            DPRINTF(GPUSched, "dispatchReady stall: WF[%d][%d] WV[%d] "
+                    "%d: %s reason=vector_mem_bus_busy\n",
+                    wf->simdId, wf->wfSlotId, wf->wfDynId,
+                    gpu_dyn_inst->seqNum(), gpu_dyn_inst->disassemble());
         }
         if (!computeUnit.globalMemoryPipe.coalescerReady(gpu_dyn_inst)) {
             rdy = false;
             stats.dispNrdyStalls[SCH_VECTOR_MEM_COALESCER_NRDY]++;
+            DPRINTF(GPUSched, "dispatchReady stall: WF[%d][%d] WV[%d] "
+                    "%d: %s reason=vector_mem_coalescer_not_ready\n",
+                    wf->simdId, wf->wfSlotId, wf->wfDynId,
+                    gpu_dyn_inst->seqNum(), gpu_dyn_inst->disassemble());
         }
         if (!computeUnit.globalMemoryPipe.outstandingReqsCheck(gpu_dyn_inst)) {
             rdy = false;
             stats.dispNrdyStalls[SCH_VECTOR_MEM_REQS_NRDY]++;
+            DPRINTF(GPUSched, "dispatchReady stall: WF[%d][%d] WV[%d] "
+                    "%d: %s reason=vector_mem_outstanding_reqs\n",
+                    wf->simdId, wf->wfSlotId, wf->wfDynId,
+                    gpu_dyn_inst->seqNum(), gpu_dyn_inst->disassemble());
         }
         if (!rdy) {
             return false;
@@ -489,10 +529,18 @@ ScheduleStage::dispatchReady(const GPUDynInstPtr &gpu_dyn_inst)
         if (!scalarMemIssueRdy) {
             rdy = false;
             stats.dispNrdyStalls[SCH_SCALAR_MEM_ISSUE_NRDY]++;
+            DPRINTF(GPUSched, "dispatchReady stall: WF[%d][%d] WV[%d] "
+                    "%d: %s reason=scalar_mem_issue_busy\n",
+                    wf->simdId, wf->wfSlotId, wf->wfDynId,
+                    gpu_dyn_inst->seqNum(), gpu_dyn_inst->disassemble());
         }
         if (!scalarMemBusRdy) {
             rdy = false;
             stats.dispNrdyStalls[SCH_SCALAR_MEM_BUS_BUSY_NRDY]++;
+            DPRINTF(GPUSched, "dispatchReady stall: WF[%d][%d] WV[%d] "
+                    "%d: %s reason=scalar_mem_bus_busy\n",
+                    wf->simdId, wf->wfSlotId, wf->wfDynId,
+                    gpu_dyn_inst->seqNum(), gpu_dyn_inst->disassemble());
         }
         if (!computeUnit.scalarMemoryPipe
             .isGMReqFIFOWrRdy(wf->scalarRdGmReqsInPipe
@@ -500,6 +548,10 @@ ScheduleStage::dispatchReady(const GPUDynInstPtr &gpu_dyn_inst)
         {
             rdy = false;
             stats.dispNrdyStalls[SCH_SCALAR_MEM_FIFO_NRDY]++;
+            DPRINTF(GPUSched, "dispatchReady stall: WF[%d][%d] WV[%d] "
+                    "%d: %s reason=scalar_mem_fifo_full\n",
+                    wf->simdId, wf->wfSlotId, wf->wfDynId,
+                    gpu_dyn_inst->seqNum(), gpu_dyn_inst->disassemble());
         }
         if (!rdy) {
             return false;
@@ -510,15 +562,27 @@ ScheduleStage::dispatchReady(const GPUDynInstPtr &gpu_dyn_inst)
         if (!locMemIssueRdy) {
             rdy = false;
             stats.dispNrdyStalls[SCH_LOCAL_MEM_ISSUE_NRDY]++;
+            DPRINTF(GPUSched, "dispatchReady stall: WF[%d][%d] WV[%d] "
+                    "%d: %s reason=local_mem_issue_busy\n",
+                    wf->simdId, wf->wfSlotId, wf->wfDynId,
+                    gpu_dyn_inst->seqNum(), gpu_dyn_inst->disassemble());
         }
         if (!locMemBusRdy) {
             rdy = false;
             stats.dispNrdyStalls[SCH_LOCAL_MEM_BUS_BUSY_NRDY]++;
+            DPRINTF(GPUSched, "dispatchReady stall: WF[%d][%d] WV[%d] "
+                    "%d: %s reason=local_mem_bus_busy\n",
+                    wf->simdId, wf->wfSlotId, wf->wfDynId,
+                    gpu_dyn_inst->seqNum(), gpu_dyn_inst->disassemble());
         }
         if (!computeUnit.localMemoryPipe.
                 isLMReqFIFOWrRdy(wf->rdLmReqsInPipe + wf->wrLmReqsInPipe)) {
             rdy = false;
             stats.dispNrdyStalls[SCH_LOCAL_MEM_FIFO_NRDY]++;
+            DPRINTF(GPUSched, "dispatchReady stall: WF[%d][%d] WV[%d] "
+                    "%d: %s reason=local_mem_fifo_full\n",
+                    wf->simdId, wf->wfSlotId, wf->wfDynId,
+                    gpu_dyn_inst->seqNum(), gpu_dyn_inst->disassemble());
         }
         if (!rdy) {
             return false;
@@ -529,23 +593,43 @@ ScheduleStage::dispatchReady(const GPUDynInstPtr &gpu_dyn_inst)
         if (!glbMemIssueRdy || !locMemIssueRdy) {
             rdy = false;
             stats.dispNrdyStalls[SCH_FLAT_MEM_ISSUE_NRDY]++;
+            DPRINTF(GPUSched, "dispatchReady stall: WF[%d][%d] WV[%d] "
+                    "%d: %s reason=flat_mem_issue_busy\n",
+                    wf->simdId, wf->wfSlotId, wf->wfDynId,
+                    gpu_dyn_inst->seqNum(), gpu_dyn_inst->disassemble());
         }
         if (!glbMemBusRdy || !locMemBusRdy) {
             rdy = false;
             stats.dispNrdyStalls[SCH_FLAT_MEM_BUS_BUSY_NRDY]++;
+            DPRINTF(GPUSched, "dispatchReady stall: WF[%d][%d] WV[%d] "
+                    "%d: %s reason=flat_mem_bus_busy\n",
+                    wf->simdId, wf->wfSlotId, wf->wfDynId,
+                    gpu_dyn_inst->seqNum(), gpu_dyn_inst->disassemble());
         }
         if (!computeUnit.globalMemoryPipe.coalescerReady(gpu_dyn_inst)) {
             rdy = false;
             stats.dispNrdyStalls[SCH_FLAT_MEM_COALESCER_NRDY]++;
+            DPRINTF(GPUSched, "dispatchReady stall: WF[%d][%d] WV[%d] "
+                    "%d: %s reason=flat_mem_coalescer_not_ready\n",
+                    wf->simdId, wf->wfSlotId, wf->wfDynId,
+                    gpu_dyn_inst->seqNum(), gpu_dyn_inst->disassemble());
         }
         if (!computeUnit.globalMemoryPipe.outstandingReqsCheck(gpu_dyn_inst)) {
             rdy = false;
             stats.dispNrdyStalls[SCH_FLAT_MEM_REQS_NRDY]++;
+            DPRINTF(GPUSched, "dispatchReady stall: WF[%d][%d] WV[%d] "
+                    "%d: %s reason=flat_mem_outstanding_reqs\n",
+                    wf->simdId, wf->wfSlotId, wf->wfDynId,
+                    gpu_dyn_inst->seqNum(), gpu_dyn_inst->disassemble());
         }
         if (!computeUnit.localMemoryPipe.
                 isLMReqFIFOWrRdy(wf->rdLmReqsInPipe + wf->wrLmReqsInPipe)) {
             rdy = false;
             stats.dispNrdyStalls[SCH_FLAT_MEM_FIFO_NRDY]++;
+            DPRINTF(GPUSched, "dispatchReady stall: WF[%d][%d] WV[%d] "
+                    "%d: %s reason=flat_mem_fifo_full\n",
+                    wf->simdId, wf->wfSlotId, wf->wfDynId,
+                    gpu_dyn_inst->seqNum(), gpu_dyn_inst->disassemble());
         }
         if (!rdy) {
             return false;

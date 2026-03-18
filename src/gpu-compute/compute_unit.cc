@@ -1449,6 +1449,22 @@ ComputeUnit::crispLabelCycle()
         for (int unitId = 0; unitId < numVectorALUs; unitId++) {
             if (scheduleToExecute.dispatchStatus(unitId) == EXREADY) {
                 valu_issued++;
+
+                GPUDynInstPtr &inst =
+                    scheduleToExecute.readyInst(unitId);
+                Wavefront *wf = inst->wavefront();
+
+                const char *crispTypeStr = "VALU";
+
+                DPRINTF(CRISPdvfs,
+                    "[CU%d] DISPATCH tick=%llu "
+                    "unit=%d wf=%d type=%s "
+                    "inst=%s pc=0x%llx\n",
+                    cu_id, curTick(),
+                    unitId, wf->wfSlotId,
+                    crispTypeStr,
+                    inst->disassemble().c_str(),
+                    inst->pc());
             }
         }
 
@@ -1457,6 +1473,22 @@ ComputeUnit::crispLabelCycle()
              unitId < numVectorALUs + numScalarALUs; unitId++) {
             if (scheduleToExecute.dispatchStatus(unitId) == EXREADY) {
                 salu_issued++;
+
+                GPUDynInstPtr &inst =
+                    scheduleToExecute.readyInst(unitId);
+                Wavefront *wf = inst->wavefront();
+
+                const char *crispTypeStr = "SALU";
+
+                DPRINTF(CRISPdvfs,
+                    "[CU%d] DISPATCH tick=%llu "
+                    "unit=%d wf=%d type=%s "
+                    "inst=%s pc=0x%llx\n",
+                    cu_id, curTick(),
+                    unitId, wf->wfSlotId,
+                    crispTypeStr,
+                    inst->disassemble().c_str(),
+                    inst->pc());
             }
         }
 
@@ -1465,6 +1497,22 @@ ComputeUnit::crispLabelCycle()
             int unitId = firstMemUnit() + i;
             if (scheduleToExecute.dispatchStatus(unitId) == EXREADY) {
                 vmem_issued++;
+
+                GPUDynInstPtr &inst =
+                    scheduleToExecute.readyInst(unitId);
+                Wavefront *wf = inst->wavefront();
+
+                const char *crispTypeStr = "VMEM";
+
+                DPRINTF(CRISPdvfs,
+                    "[CU%d] DISPATCH tick=%llu "
+                    "unit=%d wf=%d type=%s "
+                    "inst=%s pc=0x%llx\n",
+                    cu_id, curTick(),
+                    unitId, wf->wfSlotId,
+                    crispTypeStr,
+                    inst->disassemble().c_str(),
+                    inst->pc());
             }
         }
 
@@ -1473,6 +1521,22 @@ ComputeUnit::crispLabelCycle()
             int unitId = firstMemUnit() + numVectorGlobalMemUnits + i;
             if (scheduleToExecute.dispatchStatus(unitId) == EXREADY) {
                 lds_issued++;
+
+                GPUDynInstPtr &inst =
+                    scheduleToExecute.readyInst(unitId);
+                Wavefront *wf = inst->wavefront();
+
+                const char *crispTypeStr = "LDS";
+
+                DPRINTF(CRISPdvfs,
+                    "[CU%d] DISPATCH tick=%llu "
+                    "unit=%d wf=%d type=%s "
+                    "inst=%s pc=0x%llx\n",
+                    cu_id, curTick(),
+                    unitId, wf->wfSlotId,
+                    crispTypeStr,
+                    inst->disassemble().c_str(),
+                    inst->pc());
             }
         }
 
@@ -1482,11 +1546,33 @@ ComputeUnit::crispLabelCycle()
                 numVectorSharedMemUnits + i;
             if (scheduleToExecute.dispatchStatus(unitId) == EXREADY) {
                 smem_issued++;
+
+                GPUDynInstPtr &inst =
+                    scheduleToExecute.readyInst(unitId);
+                Wavefront *wf = inst->wavefront();
+
+                const char *crispTypeStr = "SMEM";
+
+                DPRINTF(CRISPdvfs,
+                    "[CU%d] DISPATCH tick=%llu "
+                    "unit=%d wf=%d type=%s "
+                    "inst=%s pc=0x%llx\n",
+                    cu_id, curTick(),
+                    unitId, wf->wfSlotId,
+                    crispTypeStr,
+                    inst->disassemble().c_str(),
+                    inst->pc());
             }
         }
 
         uint64_t total_units_issued = valu_issued + salu_issued +
             vmem_issued + lds_issued + smem_issued;
+
+        if (total_units_issued == 0) {
+            DPRINTF(CRISPdvfs,
+                "[CU%d] DISPATCH tick=%llu no_issue\n",
+                cu_id, curTick());
+        }
 
         // Check vmcnt stall across all active wavefronts
         uint64_t vmcnt_stalled_count = 0;

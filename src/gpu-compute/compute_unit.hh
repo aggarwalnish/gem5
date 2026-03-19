@@ -1115,6 +1115,11 @@ class ComputeUnit : public ClockedObject
     void crispLabelCycle();
     void crispRecordMiss(Addr addr);
     void crispRecordReturn(Addr addr);
+    void crispClearOutstandingMisses()
+    {
+        crispTick.clear();
+        crispTs.clear();
+    }
     void crispIncLoadIssued() { crispLoadIssued++; }
     void crispIncStoreIssued() { crispStoreIssued++; }
     void crispIncL1LoadHit() { crispL1LoadHit++; }

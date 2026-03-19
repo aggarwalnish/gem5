@@ -175,6 +175,9 @@ namespace VegaISA
                 wf->computeUnit->shader->dispatcher().notifyWgCompl(wf);
                 wf->setStatus(Wavefront::S_STOPPED);
                 wf->computeUnit->stats.completedWGs++;
+                if (kernelEnd) {
+                    wf->computeUnit->crispClearOutstandingMisses();
+                }
 
                 return;
             }

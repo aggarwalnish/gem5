@@ -1718,6 +1718,7 @@ ComputeUnit::DataPort::handleResponse(PacketPtr pkt)
                     w->wfDynId, w->wgId);
 
             dispatcher.notifyWgCompl(w);
+            computeUnit->crispClearOutstandingMisses();
             w->setStatus(Wavefront::S_STOPPED);
         }
 

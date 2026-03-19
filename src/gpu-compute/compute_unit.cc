@@ -1079,6 +1079,15 @@ ComputeUnit::init()
 void
 ComputeUnit::crispWindowEval(Tick curTick)
 {
+    DPRINTF(CRISPdvfs,
+        "[CU%d] crispWindowEval START: "
+        "tick=%llu tMemory=%llu "
+        "crispTick_size=%zu "
+        "crispCycleCount=%llu\n",
+        cu_id, curTick, tMemory,
+        crispTick.size(),
+        crispCycleCount);
+
     for (auto &entry : crispTick) {
         Addr lineAddr = entry.first;
         uint64_t elapsed = (curTick - entry.second) / clockPeriod();
@@ -1362,11 +1371,36 @@ ComputeUnit::crispWindowEval(Tick curTick)
 }
 
 void
+ComputeUnit::crispClearOutstandingMisses()
+{
+    DPRINTF(CRISPdvfs,
+        "[CU%d] crispClear: "
+        "tick=%llu tMemory=%llu "
+        "crispTick_size=%zu\n",
+        cu_id, curTick(), tMemory,
+        crispTick.size());
+
+    crispTick.clear();
+    crispTs.clear();
+}
+
+void
 ComputeUnit::crispRecordMiss(Addr addr)
 {
     Addr lineAddr = crispLineAddr(addr);
     crispTick[lineAddr] = curTick();
     crispTs[lineAddr] = tMemory;
+
+    DPRINTF(CRISPdvfs,
+        "[CU%d] crispRecordMiss: "
+        "tick=%llu addr=0x%llx "
+        "tMemory_before=%llu "
+        "crispTs_snapshot=%llu "
+        "crispTick_size=%zu\n",
+        cu_id, curTick(), addr,
+        tMemory,
+        crispTs[crispLineAddr(addr)],
+        crispTick.size());
 }
 
 void
@@ -1378,6 +1412,22 @@ ComputeUnit::crispRecordReturn(Addr addr)
     }
     uint64_t latency_cycles =
         (curTick() - crispTick[lineAddr]) / clockPeriod();
+
+    DPRINTF(CRISPdvfs,
+        "[CU%d] crispRecordReturn: "
+        "tick=%llu addr=0x%llx "
+        "latency_cycles=%llu "
+        "crispTs=%llu "
+        "tMemory_before=%llu "
+        "tMemory_after=%llu\n",
+        cu_id, curTick(), addr,
+        latency_cycles,
+        crispTs[crispLineAddr(addr)],
+        tMemory,
+        std::max(tMemory,
+            crispTs[crispLineAddr(addr)]
+            + latency_cycles));
+
     tMemory = std::max(tMemory, crispTs[lineAddr] + latency_cycles);
     crispTick.erase(lineAddr);
     crispTs.erase(lineAddr);

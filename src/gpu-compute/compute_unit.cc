@@ -380,7 +380,7 @@ ComputeUnit::ComputeUnit(const Params &p)
     // Used for periodic pipeline prints
     execCycles = 0;
     {
-        const std::string &eval = "50us"; //p.evaluation_period;
+        const std::string &eval = "100ns"; //p.evaluation_period;
         fatal_if(eval.size() < 3,
                  "Invalid evaluation_period (expected <num><unit>): %s",
                  eval);

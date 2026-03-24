@@ -1376,9 +1376,9 @@ ComputeUnit::crispClearOutstandingMisses()
     DPRINTF(CRISPdvfs,
         "[CU%d] crispClear: "
         "tick=%llu tMemory=%llu "
-        "crispTick_size=%zu\n",
+        "crispTick_size=%llu\n",
         cu_id, curTick(), tMemory,
-        crispTick.size());
+        (unsigned long long)crispTick.size());
 
     crispOutstandingFetchMisses = 0;
     crispTick.clear();
@@ -1397,11 +1397,11 @@ ComputeUnit::crispRecordMiss(Addr addr)
         "tick=%llu addr=0x%llx "
         "tMemory_before=%llu "
         "crispTs_snapshot=%llu "
-        "crispTick_size=%zu\n",
+        "crispTick_size=%llu\n",
         cu_id, curTick(), addr,
         tMemory,
         crispTs[crispLineAddr(addr)],
-        crispTick.size());
+        (unsigned long long)crispTick.size());
 }
 
 void
@@ -1482,6 +1482,7 @@ ComputeUnit::crispLabelCycle()
         // CRISP cycle labeling
         bool compute_issued = false;
         bool vmcnt_stall_exists = false;
+        bool fetch_stall_exists = false;
 
         // Check compute utilization
         int compute_units_issued = 0;
@@ -1627,6 +1628,7 @@ ComputeUnit::crispLabelCycle()
 
         // Check vmcnt stall across all active wavefronts
         uint64_t vmcnt_stalled_count = 0;
+        uint64_t fetch_stalled_count = 0;
         uint64_t total_active_wfs = 0;
         for (int i = 0; i < numVectorALUs; i++) {
             for (int j = 0; j < shader->n_wf; j++) {
@@ -1636,10 +1638,16 @@ ComputeUnit::crispLabelCycle()
                     if (wf->isVmemWaitcntStalled()) {
                         vmcnt_stalled_count++;
                     }
+                    if (wf->lastInstRdyStatus == "NRDY_IB_EMPTY" &&
+                        wf->pendingFetch &&
+                        crispOutstandingFetchMisses > 0) {
+                        fetch_stalled_count++;
+                    }
                 }
             }
         }
         vmcnt_stall_exists = (vmcnt_stalled_count > 0);
+        fetch_stall_exists = (fetch_stalled_count > 0);
 
         bool store_stall =
             (globalMemoryPipe.getInflightStores() >=
@@ -1744,13 +1752,17 @@ ComputeUnit::crispLabelCycle()
         } else {
             bool all_vmcnt = (vmcnt_stalled_count > 0 &&
                               vmcnt_stalled_count == total_active_wfs);
-            if (all_vmcnt && store_stall) {
+            bool all_fetch = (fetch_stalled_count > 0 &&
+                              fetch_stalled_count == total_active_wfs);
+            bool any_mem_stall = vmcnt_stall_exists || fetch_stall_exists;
+            bool all_mem_stall = all_vmcnt || all_fetch;
+            if (all_mem_stall && store_stall) {
                 crisp_case = 6;
-            } else if (all_vmcnt) {
+            } else if (all_mem_stall) {
                 crisp_case = 4;
-            } else if (vmcnt_stall_exists && store_stall) {
+            } else if (any_mem_stall && store_stall) {
                 crisp_case = 6;
-            } else if (vmcnt_stall_exists) {
+            } else if (any_mem_stall) {
                 crisp_case = 5;
             } else if (store_stall) {
                 crisp_case = 7;

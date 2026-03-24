@@ -1082,7 +1082,7 @@ ComputeUnit::crispWindowEval(Tick curTick)
     DPRINTF(CRISPdvfs,
         "[CU%d] crispWindowEval START: "
         "tick=%llu tMemory=%llu "
-        "crispTick_size=%zu "
+        "crispTick_size=%llu "
         "crispCycleCount=%llu\n",
         cu_id, curTick, tMemory,
         crispTick.size(),
@@ -1360,7 +1360,7 @@ ComputeUnit::crispWindowEval(Tick curTick)
     crispL2LoadMiss = 0;
     crispVmemMissCount = 0;
     crispSmemMissCount = 0;
-    crispOutstandingFetchMisses = 0;
+    //crispOutstandingFetchMisses = 0;
     std::fill_n(crispIssuedHistogram, CrispMaxComputeUnits, 0);
     std::fill_n(crispUtilHistogram, 10, 0);
     std::fill_n(crispCaseHistogram, 9, 0);
@@ -1380,6 +1380,7 @@ ComputeUnit::crispClearOutstandingMisses()
         cu_id, curTick(), tMemory,
         crispTick.size());
 
+    crispOutstandingFetchMisses = 0;
     crispTick.clear();
     crispTs.clear();
 }

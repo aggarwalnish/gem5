@@ -447,6 +447,7 @@ ComputeUnit::ComputeUnit(const Params &p)
     crispL2LoadMiss = 0;
     crispVmemMissCount = 0;
     crispSmemMissCount = 0;
+    crispOutstandingFetchMisses = 0;
     std::fill_n(crispIssuedHistogram, CrispMaxComputeUnits, 0);
     std::fill_n(crispUtilHistogram, 10, 0);
     std::fill_n(crispCaseHistogram, 9, 0);
@@ -1350,6 +1351,7 @@ ComputeUnit::crispWindowEval(Tick curTick)
     crispL2LoadMiss = 0;
     crispVmemMissCount = 0;
     crispSmemMissCount = 0;
+    crispOutstandingFetchMisses = 0;
     std::fill_n(crispIssuedHistogram, CrispMaxComputeUnits, 0);
     std::fill_n(crispUtilHistogram, 10, 0);
     std::fill_n(crispCaseHistogram, 9, 0);
@@ -1407,14 +1409,18 @@ ComputeUnit::crispLabelCycle()
     crispTickSizeHistogram[tick_size_bucket]++;
 
     bool any_active = false;
+    bool ib_empty_stall = false;
     for (int i = 0; i < numVectorALUs; i++) {
         for (int j = 0; j < shader->n_wf; j++) {
-            if (wfList[i][j]->getStatus() != Wavefront::S_STOPPED) {
+            Wavefront *wf = wfList[i][j];
+            if (wf->getStatus() != Wavefront::S_STOPPED) {
                 any_active = true;
-                break;
+                if (wf->lastInstRdyStatus == "NRDY_IB_EMPTY" &&
+                    wf->pendingFetch) {
+                    ib_empty_stall = true;
+                }
             }
         }
-        if (any_active) break;
     }
 
     if (!any_active) {
@@ -1504,6 +1510,10 @@ ComputeUnit::crispLabelCycle()
 
         // Label the cycle
         if (!compute_issued && vmcnt_stall_exists && !crispTick.empty()) {
+            tMemory++;
+            tStallLCP++;
+        } else if (!compute_issued && ib_empty_stall &&
+                   crispOutstandingFetchMisses > 0) {
             tMemory++;
             tStallLCP++;
         }

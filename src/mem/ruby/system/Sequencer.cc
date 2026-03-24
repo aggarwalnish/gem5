@@ -665,6 +665,7 @@ Sequencer::crispMissDetected(Addr addr)
             dynamic_cast<ComputeUnit::SQCPort::SenderState *>(pred)) {
         if (sqc_ss->wavefront && sqc_ss->wavefront->computeUnit) {
             sqc_ss->wavefront->computeUnit->crispRecordMiss(line_addr);
+            sqc_ss->wavefront->computeUnit->crispOutstandingFetchMisses++;
             sqc_ss->wavefront->computeUnit->crispIncSmemMissCount();
         }
         return;
@@ -1000,6 +1001,11 @@ Sequencer::hitCallback(SequencerRequest* srequest, DataBlock& data,
                     if (sqc_ss->wavefront && sqc_ss->wavefront->computeUnit) {
                         sqc_ss->wavefront->computeUnit->crispRecordReturn(
                             request_address);
+                        if (sqc_ss->wavefront->computeUnit->
+                                crispOutstandingFetchMisses > 0) {
+                            sqc_ss->wavefront->computeUnit->
+                                crispOutstandingFetchMisses--;
+                        }
                     }
                 } else if (auto *scalar_ss =
                         dynamic_cast<ComputeUnit::ScalarDataPort::SenderState *>(

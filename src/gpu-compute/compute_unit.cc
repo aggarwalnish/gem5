@@ -43,6 +43,7 @@
 #include "debug/GPUDisp.hh"
 #include "debug/GPUExec.hh"
 #include "debug/GPUFetch.hh"
+#include "debug/GPUIssue.hh"
 #include "debug/GPUMem.hh"
 #include "debug/GPUPort.hh"
 #include "debug/GPUPrefetch.hh"
@@ -1533,7 +1534,7 @@ ComputeUnit::crispLabelCycle()
 
                 const char *crispTypeStr = "VALU";
 
-                DPRINTF(CRISPdvfs,
+                DPRINTF(GPUIssue,
                     "[CU%d] DISPATCH tick=%llu "
                     "unit=%d wf=%d type=%s "
                     "inst=%s pc=0x%llx\n",
@@ -1557,7 +1558,7 @@ ComputeUnit::crispLabelCycle()
 
                 const char *crispTypeStr = "SALU";
 
-                DPRINTF(CRISPdvfs,
+                DPRINTF(GPUIssue,
                     "[CU%d] DISPATCH tick=%llu "
                     "unit=%d wf=%d type=%s "
                     "inst=%s pc=0x%llx\n",
@@ -1581,7 +1582,7 @@ ComputeUnit::crispLabelCycle()
 
                 const char *crispTypeStr = "VMEM";
 
-                DPRINTF(CRISPdvfs,
+                DPRINTF(GPUIssue,
                     "[CU%d] DISPATCH tick=%llu "
                     "unit=%d wf=%d type=%s "
                     "inst=%s pc=0x%llx\n",
@@ -1605,7 +1606,7 @@ ComputeUnit::crispLabelCycle()
 
                 const char *crispTypeStr = "LDS";
 
-                DPRINTF(CRISPdvfs,
+                DPRINTF(GPUIssue,
                     "[CU%d] DISPATCH tick=%llu "
                     "unit=%d wf=%d type=%s "
                     "inst=%s pc=0x%llx\n",
@@ -1630,7 +1631,7 @@ ComputeUnit::crispLabelCycle()
 
                 const char *crispTypeStr = "SMEM";
 
-                DPRINTF(CRISPdvfs,
+                DPRINTF(GPUIssue,
                     "[CU%d] DISPATCH tick=%llu "
                     "unit=%d wf=%d type=%s "
                     "inst=%s pc=0x%llx\n",
@@ -1646,7 +1647,7 @@ ComputeUnit::crispLabelCycle()
             vmem_issued + lds_issued + smem_issued;
 
         if (total_units_issued == 0) {
-            DPRINTF(CRISPdvfs,
+            DPRINTF(GPUIssue,
                 "[CU%d] DISPATCH tick=%llu no_issue\n",
                 cu_id, curTick());
         }

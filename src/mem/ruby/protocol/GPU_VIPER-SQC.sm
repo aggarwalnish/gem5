@@ -373,11 +373,11 @@ machine(MachineType:SQC, "GPU SQC (L1 I Cache)")
 
   // simple hit transitions
   transition(V, Fetch) {TagArrayRead, DataArrayRead} {
+    cl_crispLoadIssued;
+    clh_crispL1Hit;
     l_loadDoneHit;
     mru_updateMRU;
     uu_profileDataHit; // line was in SQC, so we hit
-    cl_crispLoadIssued;
-    clh_crispL1Hit;
     p_popMandatoryQueue;
   }
 }

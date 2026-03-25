@@ -770,11 +770,11 @@ machine(MachineType:TCP, "GPU TCP (L1 Data Cache)")
   }
 
   transition(V, Load) {TagArrayRead, DataArrayRead} {
+    cl_crispLoadIssued;
+    clh_crispL1Hit;
     l_loadDoneHit;
     mru_updateMRU;
     uu_profileDataHit;
-    cl_crispLoadIssued;
-    clh_crispL1Hit;
     p_popMandatoryQueue;
   }
 

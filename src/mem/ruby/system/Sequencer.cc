@@ -842,13 +842,21 @@ void
 Sequencer::crispL1HitDetected(Addr addr)
 {
     Addr line_addr = makeLineAddress(addr);
+    DPRINTF(RubySequencer, "CRISP L1Hit: addr %#x line %#x\n", addr,
+            line_addr);
     auto it = m_RequestTable.find(line_addr);
     if (it == m_RequestTable.end() || it->second.empty()) {
+        DPRINTF(RubySequencer,
+                "CRISP L1Hit: request table miss/empty for line %#x\n",
+                line_addr);
         return;
     }
 
     PacketPtr pkt = it->second.front().pkt;
     if (!pkt || !pkt->senderState) {
+        DPRINTF(RubySequencer,
+                "CRISP L1Hit: missing packet or senderState for line %#x\n",
+                line_addr);
         return;
     }
 
@@ -856,12 +864,18 @@ Sequencer::crispL1HitDetected(Addr addr)
         safe_cast<RubyPort::SenderState *>(pkt->senderState);
     Packet::SenderState *pred = ss->predecessor;
     if (!pred) {
+        DPRINTF(RubySequencer,
+                "CRISP L1Hit: missing predecessor senderState for line %#x\n",
+                line_addr);
         return;
     }
 
     if (auto *sqc_ss =
             dynamic_cast<ComputeUnit::SQCPort::SenderState *>(pred)) {
         if (sqc_ss->wavefront && sqc_ss->wavefront->computeUnit) {
+            DPRINTF(RubySequencer,
+                    "CRISP L1Hit: incrementing SQC hit for CU%d line %#x\n",
+                    sqc_ss->wavefront->computeUnit->cu_id, line_addr);
             sqc_ss->wavefront->computeUnit->crispIncL1LoadHit();
         }
         return;
@@ -871,10 +885,17 @@ Sequencer::crispL1HitDetected(Addr addr)
             dynamic_cast<ComputeUnit::ScalarDataPort::SenderState *>(pred)) {
         if (scalar_ss->_gpuDynInst &&
             scalar_ss->_gpuDynInst->computeUnit()) {
+            DPRINTF(RubySequencer,
+                    "CRISP L1Hit: incrementing scalar hit for CU%d line %#x\n",
+                    scalar_ss->_gpuDynInst->computeUnit()->cu_id, line_addr);
             scalar_ss->_gpuDynInst->computeUnit()->crispIncL1LoadHit();
         }
         return;
     }
+
+    DPRINTF(RubySequencer,
+            "CRISP L1Hit: unknown senderState type for line %#x\n",
+            line_addr);
 }
 
 void

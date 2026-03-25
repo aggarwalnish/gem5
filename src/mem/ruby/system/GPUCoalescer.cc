@@ -686,15 +686,27 @@ GPUCoalescer::crispL1HitDetected(Addr addr)
     }
 
     Addr line_addr = makeLineAddress(addr);
+    DPRINTF(GPUCoalescer, "CRISP L1Hit: addr %#x line %#x\n", addr,
+            line_addr);
     auto it = coalescedTable.find(line_addr);
     if (it == coalescedTable.end() || it->second.empty()) {
+        DPRINTF(GPUCoalescer,
+                "CRISP L1Hit: coalesced table miss/empty for line %#x\n",
+                line_addr);
         return;
     }
 
     PacketPtr pkt = it->second.front()->getFirstPkt();
     GPUDynInstPtr inst = getDynInst(pkt);
     if (inst && inst->computeUnit()) {
+        DPRINTF(GPUCoalescer,
+                "CRISP L1Hit: incrementing VMEM hit for CU%d line %#x\n",
+                inst->computeUnit()->cu_id, line_addr);
         inst->computeUnit()->crispIncL1LoadHit();
+    } else {
+        DPRINTF(GPUCoalescer,
+                "CRISP L1Hit: missing dyn inst/compute unit for line %#x\n",
+                line_addr);
     }
 }
 

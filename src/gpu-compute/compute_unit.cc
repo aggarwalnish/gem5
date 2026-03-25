@@ -1508,7 +1508,7 @@ ComputeUnit::crispLabelCycle()
         // CRISP cycle labeling
         bool compute_issued = false;
         bool vmcnt_stall_exists = false;
-        bool fetch_stall_exists = false;
+        //bool fetch_stall_exists = false;
 
         // Check compute utilization
         int compute_units_issued = 0;
@@ -1673,7 +1673,7 @@ ComputeUnit::crispLabelCycle()
             }
         }
         vmcnt_stall_exists = (vmcnt_stalled_count > 0);
-        fetch_stall_exists = (fetch_stalled_count > 0);
+        //fetch_stall_exists = (fetch_stalled_count > 0);
 
         bool store_stall =
             (globalMemoryPipe.getInflightStores() >=
@@ -1764,11 +1764,14 @@ ComputeUnit::crispLabelCycle()
         crispActiveCycleCount++;
 
         // Determine and record case
+        bool vmcnt_mem_stall = vmcnt_stall_exists && !crispTick.empty();
+        bool fetch_mem_stall =
+            ib_empty_stall && (crispOutstandingFetchMisses > 0);
         int crisp_case = 0;
         if (compute_issued) {
-            if (vmcnt_stall_exists && store_stall) {
+            if (vmcnt_mem_stall && store_stall) {
                 crisp_case = 3;
-            } else if (vmcnt_stall_exists) {
+            } else if (vmcnt_mem_stall) {
                 crisp_case = 2;
             } else if (store_stall) {
                 crisp_case = 3;
@@ -1776,11 +1779,11 @@ ComputeUnit::crispLabelCycle()
                 crisp_case = 1;
             }
         } else {
-            bool all_vmcnt = (vmcnt_stalled_count > 0 &&
+            bool all_vmcnt = (vmcnt_mem_stall &&
                               vmcnt_stalled_count == total_active_wfs);
-            bool all_fetch = (fetch_stalled_count > 0 &&
+            bool all_fetch = (fetch_mem_stall &&
                               fetch_stalled_count == total_active_wfs);
-            bool any_mem_stall = vmcnt_stall_exists || fetch_stall_exists;
+            bool any_mem_stall = vmcnt_mem_stall || fetch_mem_stall;
             bool all_mem_stall = all_vmcnt || all_fetch;
             if (all_mem_stall && store_stall) {
                 crisp_case = 6;

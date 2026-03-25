@@ -1388,9 +1388,21 @@ ComputeUnit::crispClearOutstandingMisses()
 void
 ComputeUnit::crispRecordMiss(Addr addr)
 {
+    bool any_active = false;
+    for (int i = 0; i < numVectorALUs && !any_active; i++) {
+        for (int j = 0; j < shader->n_wf; j++) {
+            if (wfList[i][j]->getStatus() != Wavefront::S_STOPPED) {
+                any_active = true;
+                break;
+            }
+        }
+    }
+
     Addr lineAddr = crispLineAddr(addr);
-    crispTick[lineAddr] = curTick();
-    crispTs[lineAddr] = tMemory;
+    if (any_active) {
+        crispTick[lineAddr] = curTick();
+        crispTs[lineAddr] = tMemory;
+    }
 
     DPRINTF(CRISPdvfs,
         "[CU%d] crispRecordMiss: "
@@ -1400,7 +1412,7 @@ ComputeUnit::crispRecordMiss(Addr addr)
         "crispTick_size=%llu\n",
         cu_id, curTick(), addr,
         tMemory,
-        crispTs[crispLineAddr(addr)],
+        any_active ? crispTs[crispLineAddr(addr)] : 0,
         (unsigned long long)crispTick.size());
 }
 
@@ -1413,6 +1425,15 @@ ComputeUnit::crispRecordReturn(Addr addr)
     }
     uint64_t latency_cycles =
         (curTick() - crispTick[lineAddr]) / clockPeriod();
+    bool any_active = false;
+    for (int i = 0; i < numVectorALUs && !any_active; i++) {
+        for (int j = 0; j < shader->n_wf; j++) {
+            if (wfList[i][j]->getStatus() != Wavefront::S_STOPPED) {
+                any_active = true;
+                break;
+            }
+        }
+    }
 
     DPRINTF(CRISPdvfs,
         "[CU%d] crispRecordReturn: "
@@ -1425,11 +1446,15 @@ ComputeUnit::crispRecordReturn(Addr addr)
         latency_cycles,
         crispTs[crispLineAddr(addr)],
         tMemory,
-        std::max(tMemory,
-            crispTs[crispLineAddr(addr)]
-            + latency_cycles));
+        any_active ?
+            std::max(tMemory,
+                crispTs[crispLineAddr(addr)]
+                + latency_cycles) :
+            tMemory);
 
-    tMemory = std::max(tMemory, crispTs[lineAddr] + latency_cycles);
+    if (any_active) {
+        tMemory = std::max(tMemory, crispTs[lineAddr] + latency_cycles);
+    }
     crispTick.erase(lineAddr);
     crispTs.erase(lineAddr);
 }

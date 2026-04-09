@@ -121,6 +121,8 @@ def makeGpuFSSystem(args):
             )
             # Assign with unique name so System can track it
             setattr(system, f"cu_dvfs_controller_{i}", controller)
+            shader.CUs[i].attachDVFSController(
+                controller, controller.evaluation_period)
 
     # The shader core will be whatever is after the CPU cores are accounted for
     shader_idx = args.num_cpus

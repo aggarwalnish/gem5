@@ -37,7 +37,7 @@ from m5.objects.Process import EmulatedDriver
 from m5.objects.VegaGPUTLB import VegaPagetableWalker
 from m5.params import *
 from m5.proxy import *
-from m5.SimObject import SimObject
+from m5.SimObject import SimObject, cxxMethod
 
 
 class PrefetchType(Enum):
@@ -133,6 +133,10 @@ class ComputeUnit(ClockedObject):
     type = "ComputeUnit"
     cxx_class = "gem5::ComputeUnit"
     cxx_header = "gpu-compute/compute_unit.hh"
+
+    @cxxMethod
+    def attachDVFSController(self, ctrl, windowTicks):
+        pass
 
     wavefronts = VectorParam.Wavefront("Number of wavefronts")
     # Wavefront size is 64. This is configurable, however changing

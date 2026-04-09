@@ -56,6 +56,7 @@
 #include "enums/GfxVersion.hh"
 #include "gpu-compute/dispatcher.hh"
 #include "gpu-compute/gpu_command_processor.hh"
+#include "gpu-compute/gpu_dvfs_controller.hh"
 #include "gpu-compute/gpu_dyn_inst.hh"
 #include "gpu-compute/gpu_static_inst.hh"
 #include "gpu-compute/register_file_cache.hh"
@@ -380,35 +381,6 @@ ComputeUnit::ComputeUnit(const Params &p)
 
     // Used for periodic pipeline prints
     execCycles = 0;
-    {
-        const std::string &eval = "100ns"; //p.evaluation_period;
-        fatal_if(eval.size() < 3,
-                 "Invalid evaluation_period (expected <num><unit>): %s",
-                 eval);
-
-        std::string unit = eval.substr(eval.size() - 2);
-        std::string num_str = eval.substr(0, eval.size() - 2);
-
-        char *endptr = nullptr;
-        errno = 0;
-        uint64_t value = std::strtoull(num_str.c_str(), &endptr, 10);
-        fatal_if(errno != 0 || endptr == num_str.c_str() || *endptr != '\0',
-                 "Invalid evaluation_period numeric value: %s", eval);
-
-        uint64_t duration_ns = 0;
-        if (unit == "ms") {
-            duration_ns = value * 1000000ULL;
-        } else if (unit == "us") {
-            duration_ns = value * 1000ULL;
-        } else if (unit == "ns") {
-            duration_ns = value;
-        } else {
-            fatal("Invalid evaluation_period unit (use ms/us/ns): %s", eval);
-        }
-
-        crispWindowDurationCycles =
-            (duration_ns * 1000ULL) / clockPeriod();
-    }
     tMemory = 0;
     tStallLCP = 0;
     tIdle = 0;
@@ -456,6 +428,14 @@ ComputeUnit::ComputeUnit(const Params &p)
     std::fill_n(crispTickSizeHistogram, 6, 0);
     std::fill_n(crispTotalIssuedHistogram, 9, 0);
     std::fill_n(crispInflightStoresHistogram, 9, 0);
+}
+
+void
+ComputeUnit::attachDVFSController(GPUDVFSController *ctrl, Tick windowTicks)
+{
+    dvfsController = ctrl;
+    crispWindowDurationCycles =
+        std::max<uint64_t>(1, windowTicks / clockPeriod());
 }
 
 ComputeUnit::~ComputeUnit()
@@ -1324,6 +1304,12 @@ ComputeUnit::crispWindowEval(Tick curTick)
             (unsigned long long)crispVmemIssuedCount,
             (unsigned long long)crispSmemIssuedCount,
             (unsigned long long)crispLdsIssuedCount);
+
+    if (dvfsController) {
+        dvfsController->evaluate(tMemory, tStallLCP, tIdle,
+                                 T_active, T_overlapped_compute,
+                                 T_pure_compute);
+    }
 
     tMemory = 0;
     tStallLCP = 0;

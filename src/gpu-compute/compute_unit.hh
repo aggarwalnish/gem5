@@ -64,6 +64,7 @@ namespace gem5
 {
 
 class HSAQueueEntry;
+class GPUDVFSController;
 class LdsChunk;
 class ScalarRegisterFile;
 class Shader;
@@ -1005,7 +1006,8 @@ class ComputeUnit : public ClockedObject
     {
         return addr & ~(_cacheLineSize - 1);
     }
-    uint64_t crispWindowDurationCycles;
+    GPUDVFSController *dvfsController = nullptr;
+    uint64_t crispWindowDurationCycles = UINT64_MAX;
     // CRISP DVFS counters
     static constexpr int CrispMaxComputeUnits = 10;
     uint64_t tMemory;       // Load critical path
@@ -1111,6 +1113,7 @@ class ComputeUnit : public ClockedObject
 
   public:
     void updateInstStats(GPUDynInstPtr gpuDynInst);
+    void attachDVFSController(GPUDVFSController *ctrl, Tick windowTicks);
     void crispWindowEval(Tick curTick);
     void crispLabelCycle();
     void crispRecordMiss(Addr addr);

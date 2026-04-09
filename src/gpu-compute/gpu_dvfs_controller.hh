@@ -8,9 +8,8 @@
 #define __GPU_COMPUTE_GPU_DVFS_CONTROLLER_HH__
 
 #include <vector>
-#include "params/GPUDVFSController.hh"
 #include "gpu-compute/compute_unit.hh"
-#include "sim/eventq.hh"
+#include "params/GPUDVFSController.hh"
 #include "sim/sim_object.hh"
 
 namespace gem5
@@ -23,7 +22,9 @@ class GPUDVFSController : public SimObject
   public:
     typedef GPUDVFSControllerParams Params;
     GPUDVFSController(const Params &p);
-    void startup() override;
+    void evaluate(uint64_t tMemory, uint64_t tStallLCP, uint64_t tIdle,
+                  uint64_t T_active, uint64_t T_overlapped,
+                  uint64_t T_pure_compute);
 
   private:
     // Configuration
@@ -31,31 +32,34 @@ class GPUDVFSController : public SimObject
     ComputeUnit *computeUnit;
     Tick evaluationPeriod;
     bool enableFrequencyTransitions;
-
-    // Event for periodic evaluation
-    EventFunctionWrapper evaluateEvent;
+    uint64_t lastInstCount = 0;
+    uint64_t lastCycleCount = 0;
 
     // CRISP methods
-    uint64_t calculateCRISPDelay(const ComputeUnit::CRISPCycleCounter &counters,
+    uint64_t calculateCRISPDelay(uint64_t tStallLCP,
+                                 uint64_t T_overlapped,
+                                 uint64_t T_pure_compute,
                                  double currentFreqMHz,
                                  double targetFreqMHz) const;
 
-    double calculateCRISPEDP(const ComputeUnit::CRISPCycleCounter &counters,
-                            double staticPower, double dynamicPower,
-                            double currentFreqMHz, double targetFreqMHz,
-                            double voltageCurrent, double voltageTarget) const;
+    double calculateCRISPEDP(uint64_t tStallLCP,
+                             uint64_t T_overlapped,
+                             uint64_t T_pure_compute,
+                             double staticPower, double dynamicPower,
+                             double currentFreqMHz, double targetFreqMHz,
+                             double voltageCurrent, double voltageTarget) const;
 
     // Helper methods
     double tickToFrequencyMHz(Tick clkPeriod) const;
-    int selectOptimalFrequencyEDP(const ComputeUnit::CRISPCycleCounter &crispCounters) const;
+    int selectOptimalFrequencyEDP(uint64_t tMemory, uint64_t tStallLCP,
+                                  uint64_t tIdle, uint64_t T_active,
+                                  uint64_t T_overlapped,
+                                  uint64_t T_pure_compute) const;
 
-    // Extract average power from accumulated energy measurements
-    // Returns true if valid power data available, false otherwise
-    bool extractAveragePower(const ComputeUnit::CRISPCycleCounter &crispCounters,
-                            double &staticPower, double &dynamicPower) const;
+    bool extractAveragePower(double &staticPower,
+                             double &dynamicPower) const;
 
     // Core policy methods
-    void evaluateAndAdjust();
     double computeIPC();
     void adjustFrequency(int newLevel);
 };

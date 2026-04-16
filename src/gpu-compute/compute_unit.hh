@@ -1008,6 +1008,8 @@ class ComputeUnit : public ClockedObject
     }
     GPUDVFSController *dvfsController = nullptr;
     uint64_t crispWindowDurationCycles = UINT64_MAX;
+    uint64_t crispLastNumInstrExecuted = 0;
+    double crispWindowIpc = 0.0;
     // CRISP DVFS counters
     static constexpr int CrispMaxComputeUnits = 10;
     uint64_t tMemory;       // Load critical path
@@ -1260,6 +1262,7 @@ class ComputeUnit : public ClockedObject
         statistics::Formula vpc_f32; // vector ops per cycle
         statistics::Formula vpc_f64; // vector ops per cycle
         statistics::Formula ipc; // vector instructions per cycle
+        statistics::Value windowIpc;
         statistics::Distribution controlFlowDivergenceDist;
         statistics::Distribution activeLanesPerGMemInstrDist;
         statistics::Distribution activeLanesPerLMemInstrDist;

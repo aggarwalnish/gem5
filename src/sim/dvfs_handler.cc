@@ -169,11 +169,6 @@ DVFSHandler::UpdateEvent::updatePerfLevel()
     DPRINTF(DVFS, "UpdateEvent: dvfsHandler = %p, handler name = %s\n",
          dvfsHandler, dvfsHandler->name());
     DPRINTF(DVFS, "UpdateEvent: Handler has %d domains\n", dvfsHandler->domains.size());
-    // Perform explicit stats dump for power estimation before performance
-    // level migration
-    statistics::dump();
-    statistics::reset();
-
     // Update the performance level in the clock domain
     DPRINTF(DVFS, "UpdateEvent: About to find domain %d\n", domainIDToSet);
     auto d = dvfsHandler->findDomain(domainIDToSet);

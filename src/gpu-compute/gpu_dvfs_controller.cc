@@ -62,30 +62,28 @@ GPUDVFSController::extractAveragePower(
 }
 
 uint64_t
-GPUDVFSController::calculateCRISPDelay(uint64_t tStallLCP,
+GPUDVFSController::calculateCRISPDelay(uint64_t tMemory,
                                        uint64_t T_overlapped,
                                        uint64_t T_pure_compute,
                                        double currentFreqMHz,
                                        double targetFreqMHz) const
 {
-    uint64_t Tcomp_LCP = std::ceil(
+    uint64_t Tcomp_LCP_scaled = std::ceil(
         (currentFreqMHz / targetFreqMHz) * T_overlapped);
-    uint64_t TLCP = (tStallLCP >= Tcomp_LCP) ? tStallLCP : Tcomp_LCP;
+    uint64_t TLCP = std::max(tMemory, Tcomp_LCP_scaled);
 
     uint64_t Tcomp_CSP_scaled = std::ceil(
         (currentFreqMHz / targetFreqMHz) * T_pure_compute);
-    uint64_t TCSP = (Tcomp_CSP_scaled >= T_pure_compute) ?
-        Tcomp_CSP_scaled : T_pure_compute;
+    uint64_t TCSP = std::max(T_pure_compute, Tcomp_CSP_scaled);
 
-    uint64_t Tdelay = TLCP + TCSP;
-
-    return Tdelay;
+    return TLCP + TCSP;
 }
 
 double
-GPUDVFSController::calculateCRISPEDP(uint64_t tStallLCP,
+GPUDVFSController::calculateCRISPEDP(uint64_t tMemory,
                                      uint64_t T_overlapped,
                                      uint64_t T_pure_compute,
+                                     uint64_t T_active,
                                      double staticPower,    double dynamicPower,
                                      double currentFreqMHz, double targetFreqMHz,
                                      double voltageCurrent, double voltageTarget) const
@@ -97,36 +95,37 @@ GPUDVFSController::calculateCRISPEDP(uint64_t tStallLCP,
         return std::numeric_limits<double>::max();
     }
 
-    uint64_t Tdelay = calculateCRISPDelay(tStallLCP, T_overlapped,
+    uint64_t Tdelay = calculateCRISPDelay(tMemory, T_overlapped,
                                           T_pure_compute, currentFreqMHz,
                                           targetFreqMHz);
 
-    uint64_t Tcurrent = calculateCRISPDelay(tStallLCP, T_overlapped,
-                                          T_pure_compute, currentFreqMHz,
-                                          currentFreqMHz);
+    uint64_t Tcurrent = T_active;
 
     double staticPowerScaled = staticPower * (voltageTarget / voltageCurrent);
     
     double dynamicPowerScaled = dynamicPower * ((voltageTarget * voltageTarget) / (voltageCurrent * voltageCurrent)) * (targetFreqMHz / currentFreqMHz);
     
-    double Estatic = staticPowerScaled * Tdelay;
+    double Tdelay_s = static_cast<double>(Tdelay) *
+        computeUnit->clockPeriod() * 1e-12;
+    double Tcurrent_s = static_cast<double>(Tcurrent) *
+        computeUnit->clockPeriod() * 1e-12;
     
-    double Edynamic = dynamicPowerScaled * Tcurrent;
+    double Estatic = staticPowerScaled * Tdelay_s;
+    
+    double Edynamic = dynamicPowerScaled * Tcurrent_s;
     
     double Etotal = Estatic + Edynamic;
     
-    double EDP = Etotal * Tdelay;
+    double EDP = Etotal * Tdelay_s;
     
     return EDP;
 }
 
 int
 GPUDVFSController::selectOptimalFrequencyEDP(
-    uint64_t tMemory, uint64_t tStallLCP, uint64_t tIdle,
-    uint64_t T_active, uint64_t T_overlapped,
+    uint64_t tMemory, uint64_t T_active, uint64_t T_overlapped,
     uint64_t T_pure_compute) const
 {
-    (void)tIdle;
     (void)T_active;
 
     int domain_id = computeUnit->cu_id;
@@ -135,7 +134,6 @@ GPUDVFSController::selectOptimalFrequencyEDP(
 
     // Edge case: No CRISP data collected
     bool hasData = (tMemory > 0 ||
-                    tStallLCP > 0 ||
                     T_overlapped > 0 ||
                     T_pure_compute > 0);
 
@@ -174,8 +172,8 @@ GPUDVFSController::selectOptimalFrequencyEDP(
         double targetVoltage = dvfsHandler->voltageAtPerfLevel(domain_id, level);
 
         // Calculate EDP for this target level using measured power
-        double edp = calculateCRISPEDP(tStallLCP, T_overlapped,
-                                       T_pure_compute, staticPower,
+        double edp = calculateCRISPEDP(tMemory, T_overlapped,
+                                       T_pure_compute, T_active, staticPower,
                                        dynamicPower, currentFreqMHz,
                                        targetFreqMHz, currentVoltage,
                                        targetVoltage);
@@ -196,24 +194,20 @@ GPUDVFSController::selectOptimalFrequencyEDP(
 }
 
 void
-GPUDVFSController::evaluate(uint64_t tMemory, uint64_t tStallLCP,
-                            uint64_t tIdle, uint64_t T_active,
+GPUDVFSController::evaluate(uint64_t tMemory, uint64_t T_active,
                             uint64_t T_overlapped,
                             uint64_t T_pure_compute)
 {
     // Use CRISP counters for EDP-based frequency selection
     int currentLevel = dvfsHandler->perfLevel(computeUnit->cu_id);
     int newLevel = selectOptimalFrequencyEDP(
-        tMemory, tStallLCP, tIdle, T_active,
-        T_overlapped, T_pure_compute);
+        tMemory, T_active, T_overlapped, T_pure_compute);
 
     // Debug: Log CRISP counter summary
-    DPRINTF(DVFS, "CU %d CRISP: TMemory=%lu, TStallLCP=%lu, TIdle=%lu, "
+    DPRINTF(DVFS, "CU %d CRISP: TMemory=%lu, "
             "TActive=%lu, Overlap=%lu, Pure=%lu\n",
             computeUnit->cu_id,
             tMemory,
-            tStallLCP,
-            tIdle,
             T_active,
             T_overlapped,
             T_pure_compute);
@@ -225,40 +219,6 @@ GPUDVFSController::evaluate(uint64_t tMemory, uint64_t tStallLCP,
         adjustFrequency(newLevel);
     }
 
-}
-double GPUDVFSController::computeIPC() {
-  static int eval_count = 0;
-  eval_count++;
-
-  // Get current cumulative stats for this CU
-  uint64_t currentInsts = computeUnit->stats.numInstrExecuted.value();
-  uint64_t currentCycles = computeUnit->stats.totalCycles.value();
-
-  // Debug: Print raw stats periodically or when non-zero
-  if (eval_count % 100 == 0 || currentInsts > 0) {
-    DPRINTF(DVFS, 
-        "  [Eval %d] CU[%d]: activeWaves=%d, totalInsts=%lu, totalCycles=%lu\n",
-        eval_count, computeUnit->cu_id, computeUnit->activeWaves, currentInsts,
-        currentCycles);
-  }
-
-  // Compute deltas since last check
-  uint64_t deltaInsts = currentInsts - lastInstCount;
-  uint64_t deltaCycles = currentCycles - lastCycleCount;
-
-  // Update history
-  lastInstCount = currentInsts;
-  lastCycleCount = currentCycles;
-
-  // Compute IPC for this period
-  double ipc = 0.0;
-  if (deltaCycles > 0) {
-    ipc = static_cast<double>(deltaInsts) / deltaCycles;
-    DPRINTF(DVFS, "CU %d: deltaInsts=%lu, deltaCycles=%lu, IPC=%.3f\n",
-            computeUnit->cu_id, deltaInsts, deltaCycles, ipc);
-  }
-
-  return ipc;
 }
 void
 GPUDVFSController::adjustFrequency(int newLevel)
@@ -276,9 +236,13 @@ GPUDVFSController::adjustFrequency(int newLevel)
     if (!success) {
         DPRINTF(DVFS, "CU %d DVFS: Failed to transition from level %d to %d\n",
              computeUnit->cu_id, currentLevel, newLevel);
-    } else {
-        computeUnit->recomputeWindowCycles();
     }
+}
+
+void
+GPUDVFSController::onFrequencyTransitionComplete()
+{
+    computeUnit->recomputeWindowCycles();
 }
 
 } // namespace gem5

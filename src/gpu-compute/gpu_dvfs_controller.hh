@@ -22,9 +22,10 @@ class GPUDVFSController : public SimObject
   public:
     typedef GPUDVFSControllerParams Params;
     GPUDVFSController(const Params &p);
-    void evaluate(uint64_t tMemory, uint64_t tStallLCP, uint64_t tIdle,
-                  uint64_t T_active, uint64_t T_overlapped,
+    void evaluate(uint64_t tMemory, uint64_t T_active,
+                  uint64_t T_overlapped,
                   uint64_t T_pure_compute);
+    void onFrequencyTransitionComplete();
     Tick getEvaluationPeriod() const { return evaluationPeriod; }
 
   private:
@@ -33,27 +34,25 @@ class GPUDVFSController : public SimObject
     ComputeUnit *computeUnit;
     Tick evaluationPeriod;
     bool enableFrequencyTransitions;
-    uint64_t lastInstCount = 0;
-    uint64_t lastCycleCount = 0;
 
     // CRISP methods
-    uint64_t calculateCRISPDelay(uint64_t tStallLCP,
+    uint64_t calculateCRISPDelay(uint64_t tMemory,
                                  uint64_t T_overlapped,
                                  uint64_t T_pure_compute,
                                  double currentFreqMHz,
                                  double targetFreqMHz) const;
 
-    double calculateCRISPEDP(uint64_t tStallLCP,
+    double calculateCRISPEDP(uint64_t tMemory,
                              uint64_t T_overlapped,
                              uint64_t T_pure_compute,
+                             uint64_t T_active,
                              double staticPower, double dynamicPower,
                              double currentFreqMHz, double targetFreqMHz,
                              double voltageCurrent, double voltageTarget) const;
 
     // Helper methods
     double tickToFrequencyMHz(Tick clkPeriod) const;
-    int selectOptimalFrequencyEDP(uint64_t tMemory, uint64_t tStallLCP,
-                                  uint64_t tIdle, uint64_t T_active,
+    int selectOptimalFrequencyEDP(uint64_t tMemory, uint64_t T_active,
                                   uint64_t T_overlapped,
                                   uint64_t T_pure_compute) const;
 
@@ -61,7 +60,6 @@ class GPUDVFSController : public SimObject
                              double &dynamicPower) const;
 
     // Core policy methods
-    double computeIPC();
     void adjustFrequency(int newLevel);
 };
 

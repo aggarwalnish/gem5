@@ -43,11 +43,11 @@ class ComputeUnitPowerOn(MathExprPowerModel):
         super().__init__(**kwargs)
         # Clean up the path - remove <orphan System> prefix which contains invalid characters
         clean_path = cu_path.replace("<orphan System>", "system")
-        # Power model based on voltage squared, IPC, and clock period
-        # Formula: voltage^2 * ipc / clock_period * 10000
+        # Power model based on voltage squared, CRISP-window IPC, and
+        # clock period.
         # This captures both voltage and frequency effects on dynamic power
         # Using parentheses for clarity and proper operator precedence
-        self.dyn = "(voltage * voltage) * ({}.ipc / clock_period) * 1000000".format(
+        self.dyn = "(voltage * voltage) * ({}.windowIpc / clock_period) * 1000000".format(
             clean_path
         )
         with open("/tmp/cu_power_expr.txt", "a") as f:

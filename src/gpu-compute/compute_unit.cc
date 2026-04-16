@@ -384,6 +384,8 @@ ComputeUnit::ComputeUnit(const Params &p)
     tMemory = 0;
     tStallLCP = 0;
     tIdle = 0;
+    crispLastNumInstrExecuted = 0;
+    crispWindowIpc = 0.0;
     crispThreshold = 0.5f;
     crispIdleThreshold = 0.8f;
     crispCycleCount = 0;
@@ -1092,6 +1094,12 @@ ComputeUnit::crispWindowEval(Tick curTick)
     uint64_t T_active = T_total - tIdle;
     uint64_t T_overlapped_compute = tMemory - tStallLCP;
     uint64_t T_pure_compute = T_active - tMemory;
+    uint64_t currentNumInstrExecuted = stats.numInstrExecuted.value();
+    uint64_t windowNumInstrExecuted =
+        currentNumInstrExecuted - crispLastNumInstrExecuted;
+    crispLastNumInstrExecuted = currentNumInstrExecuted;
+    crispWindowIpc = T_total > 0 ?
+        static_cast<double>(windowNumInstrExecuted) / T_total : 0.0;
 
     if ((float)tIdle / T_total > crispIdleThreshold) {
         DPRINTF(CRISPdvfs, "CRISP WARNING: High idle "
@@ -1107,14 +1115,16 @@ ComputeUnit::crispWindowEval(Tick curTick)
             "TIdle=%llu "
             "T_active=%llu "
             "T_overlapped_compute=%llu "
-            "T_pure_compute=%llu\n",
+            "T_pure_compute=%llu "
+            "windowIpc=%.6f\n",
             (unsigned long long)curTick,
             (unsigned long long)tMemory,
             (unsigned long long)tStallLCP,
             (unsigned long long)tIdle,
             (unsigned long long)T_active,
             (unsigned long long)T_overlapped_compute,
-            (unsigned long long)T_pure_compute);
+            (unsigned long long)T_pure_compute,
+            crispWindowIpc);
 
     float avg_issued = crispActiveCycleCount > 0 ?
         (float)crispIssuedSum / crispActiveCycleCount : 0.0f;
@@ -1317,8 +1327,7 @@ ComputeUnit::crispWindowEval(Tick curTick)
             (unsigned long long)crispLdsIssuedCount);
 
     if (dvfsController) {
-        dvfsController->evaluate(tMemory, tStallLCP, tIdle,
-                                 T_active, T_overlapped_compute,
+        dvfsController->evaluate(tMemory, T_active, T_overlapped_compute,
                                  T_pure_compute);
     }
 
@@ -3477,6 +3486,7 @@ ComputeUnit::ComputeUnitStats::ComputeUnitStats(statistics::Group *parent,
       ADD_STAT(vpc_f32, "F32 Vector Operations per cycle (this CU only)"),
       ADD_STAT(vpc_f64, "F64 Vector Operations per cycle (this CU only)"),
       ADD_STAT(ipc, "Instructions per cycle (this CU only)"),
+      ADD_STAT(windowIpc, "Instructions per cycle for the current CRISP window"),
       ADD_STAT(controlFlowDivergenceDist, "number of lanes active per "
                "instruction (over all instructions)"),
       ADD_STAT(activeLanesPerGMemInstrDist,
@@ -3557,6 +3567,7 @@ ComputeUnit::ComputeUnitStats::ComputeUnitStats(statistics::Group *parent,
     }
 
     ipc = numInstrExecuted / totalCycles;
+    windowIpc.scalar(cu->crispWindowIpc);
     vpc = numVecOpsExecuted / totalCycles;
     vpc_f16 = numVecOpsExecutedF16 / totalCycles;
     vpc_f32 = numVecOpsExecutedF32 / totalCycles;

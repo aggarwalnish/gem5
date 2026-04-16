@@ -272,6 +272,8 @@ GPUDVFSController::adjustFrequency(int newLevel)
     if (!success) {
         DPRINTF(DVFS, "CU %d DVFS: Failed to transition from level %d to %d\n",
              computeUnit->cu_id, currentLevel, newLevel);
+    } else {
+        computeUnit->recomputeWindowCycles();
     }
 }
 

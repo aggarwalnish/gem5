@@ -438,6 +438,17 @@ ComputeUnit::attachDVFSController(GPUDVFSController *ctrl, Tick windowTicks)
         std::max<uint64_t>(1, windowTicks / clockPeriod());
 }
 
+void
+ComputeUnit::recomputeWindowCycles()
+{
+    if (dvfsController == nullptr)
+        return;
+
+    crispWindowDurationCycles =
+        std::max<uint64_t>(1,
+            dvfsController->getEvaluationPeriod() / clockPeriod());
+}
+
 ComputeUnit::~ComputeUnit()
 {
     // Delete wavefront slots

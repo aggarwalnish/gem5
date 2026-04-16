@@ -1114,6 +1114,7 @@ class ComputeUnit : public ClockedObject
   public:
     void updateInstStats(GPUDynInstPtr gpuDynInst);
     void attachDVFSController(GPUDVFSController *ctrl, Tick windowTicks);
+    void recomputeWindowCycles();
     void crispWindowEval(Tick curTick);
     void crispLabelCycle();
     void crispRecordMiss(Addr addr);

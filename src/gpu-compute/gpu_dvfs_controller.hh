@@ -25,6 +25,7 @@ class GPUDVFSController : public SimObject
     void evaluate(uint64_t tMemory, uint64_t tStallLCP, uint64_t tIdle,
                   uint64_t T_active, uint64_t T_overlapped,
                   uint64_t T_pure_compute);
+    Tick getEvaluationPeriod() const { return evaluationPeriod; }
 
   private:
     // Configuration

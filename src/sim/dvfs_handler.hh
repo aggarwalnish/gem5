@@ -47,6 +47,7 @@
 #define __SIM_DVFS_HANDLER_HH__
 
 #include <cassert>
+#include <functional>
 #include <map>
 #include <vector>
 
@@ -196,12 +197,18 @@ class DVFSHandler : public SimObject
      */
     bool isEnabled() const { return enableHandler; }
 
+    using TransitionCallback = std::function<void()>;
+
+    void registerTransitionCallback(DomainID domain_id,
+                                    TransitionCallback cb);
+
     void serialize(CheckpointOut &cp) const override;
     void unserialize(CheckpointIn &cp) override;
 
   private:
     typedef std::map<DomainID, SrcClockDomain*> Domains;
     Domains domains;
+    std::map<DomainID, TransitionCallback> transitionCallbacks;
 
     /**
       * List of IDs avaiable in the domain list

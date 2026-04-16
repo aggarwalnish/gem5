@@ -161,6 +161,13 @@ DVFSHandler::perfLevel(DomainID domain_id, PerfLevel perf_level)
 }
 
 void
+DVFSHandler::registerTransitionCallback(DomainID domain_id,
+                                        TransitionCallback cb)
+{
+    transitionCallbacks[domain_id] = cb;
+}
+
+void
 DVFSHandler::UpdateEvent::updatePerfLevel()
 {
     // Debug: Print what we're trying to do
@@ -175,6 +182,10 @@ DVFSHandler::UpdateEvent::updatePerfLevel()
     assert(d->perfLevel() != perfLevelToSet);
 
     d->perfLevel(perfLevelToSet);
+    auto it = dvfsHandler->transitionCallbacks.find(domainIDToSet);
+    if (it != dvfsHandler->transitionCallbacks.end()) {
+        it->second();
+    }
 }
 
 double

@@ -47,6 +47,7 @@
 #include "enums/GfxVersion.hh"
 #include "enums/PrefetchType.hh"
 #include "gpu-compute/comm.hh"
+#include "gpu-compute/gpu_dvfs_controller.hh"
 #include "gpu-compute/exec_stage.hh"
 #include "gpu-compute/fetch_stage.hh"
 #include "gpu-compute/global_memory_pipeline.hh"
@@ -64,7 +65,6 @@ namespace gem5
 {
 
 class HSAQueueEntry;
-class GPUDVFSController;
 class LdsChunk;
 class ScalarRegisterFile;
 class Shader;

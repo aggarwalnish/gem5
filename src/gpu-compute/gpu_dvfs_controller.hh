@@ -8,13 +8,13 @@
 #define __GPU_COMPUTE_GPU_DVFS_CONTROLLER_HH__
 
 #include <vector>
-#include "gpu-compute/compute_unit.hh"
 #include "params/GPUDVFSController.hh"
 #include "sim/sim_object.hh"
 
 namespace gem5
 {
 
+class ComputeUnit;
 class DVFSHandler;
 
 class GPUDVFSController : public SimObject

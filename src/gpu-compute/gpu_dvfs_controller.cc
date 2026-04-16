@@ -101,6 +101,10 @@ GPUDVFSController::calculateCRISPEDP(uint64_t tStallLCP,
                                           T_pure_compute, currentFreqMHz,
                                           targetFreqMHz);
 
+    uint64_t Tcurrent = calculateCRISPDelay(tStallLCP, T_overlapped,
+                                          T_pure_compute, currentFreqMHz,
+                                          currentFreqMHz);
+
     double staticPowerScaled = staticPower * (voltageTarget / voltageCurrent);
     
     double dynamicPowerScaled = dynamicPower * ((voltageTarget * voltageTarget) / (voltageCurrent * voltageCurrent)) * (targetFreqMHz / currentFreqMHz);

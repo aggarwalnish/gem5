@@ -14,11 +14,24 @@ namespace gem5
 GPUDVFSController::GPUDVFSController(const Params &p)
     : SimObject(p),
       dvfsHandler(p.dvfs_handler),
-      computeUnit(p.compute_unit),
+      computeUnit(nullptr),
       evaluationPeriod(p.evaluation_period),
       enableFrequencyTransitions(p.enable_frequency_transitions)
 {
-    DPRINTF(CRISPdvfs, "GPU DVFS Controller created for CU %d, "
+    DPRINTF(CRISPdvfs, "GPU DVFS Controller created, eval period %lu ticks\n",
+            evaluationPeriod);
+}
+
+void
+GPUDVFSController::bindComputeUnit(ComputeUnit *cu)
+{
+    panic_if(computeUnit && computeUnit != cu,
+        "GPUDVFSController already bound to CU %d, cannot rebind to CU %d",
+        computeUnit->cu_id, cu->cu_id);
+
+    computeUnit = cu;
+
+    DPRINTF(CRISPdvfs, "GPU DVFS Controller bound to CU %d, "
             "eval period %lu ticks\n",
             computeUnit->cu_id, evaluationPeriod);
     dvfsHandler->registerTransitionCallback(

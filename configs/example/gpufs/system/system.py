@@ -115,7 +115,6 @@ def makeGpuFSSystem(args):
         for i in range(args.num_compute_units):
             controller = GPUDVFSController(
                 dvfs_handler=system.dvfs_handler,  # Use System's default handler
-                compute_unit=shader.CUs[i],     # Each monitors a different CU
                 evaluation_period=args.dvfs_eval_window,
                 enable_frequency_transitions=args.enable_dvfs,
             )

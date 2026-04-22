@@ -22,6 +22,7 @@ class GPUDVFSController : public SimObject
   public:
     typedef GPUDVFSControllerParams Params;
     GPUDVFSController(const Params &p);
+    void bindComputeUnit(ComputeUnit *cu);
     void evaluate(uint64_t tMemory, uint64_t T_active,
                   uint64_t T_overlapped,
                   uint64_t T_pure_compute);

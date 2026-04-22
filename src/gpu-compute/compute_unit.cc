@@ -1071,6 +1071,7 @@ ComputeUnit::init()
 
     const auto &p = static_cast<const Params &>(params());
     if (p.dvfs_controller) {
+        p.dvfs_controller->bindComputeUnit(this);
         attachDVFSController(
             p.dvfs_controller, p.dvfs_controller->getEvaluationPeriod());
     }

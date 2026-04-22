@@ -18,7 +18,6 @@ class GPUDVFSController(SimObject):
     cxx_class   = "gem5::GPUDVFSController"
 
     dvfs_handler = Param.DVFSHandler("DVFS handler to control")
-    compute_unit = Param.ComputeUnit("Compute unit to monitor")
 
     #Knob to enable/disable the handler
     enable_frequency_transitions = Param.Bool(True, "Enable the GPU DVFS Handler.")

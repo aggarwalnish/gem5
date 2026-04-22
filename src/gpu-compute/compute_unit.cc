@@ -1068,6 +1068,12 @@ ComputeUnit::init()
     globalMemoryPipe.init();
 
     gmTokenPort.setTokenManager(memPortTokens);
+
+    const auto &p = static_cast<const Params &>(params());
+    if (p.dvfs_controller) {
+        attachDVFSController(
+            p.dvfs_controller, p.dvfs_controller->getEvaluationPeriod());
+    }
 }
 
 void

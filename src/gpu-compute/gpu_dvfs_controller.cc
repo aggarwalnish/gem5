@@ -88,9 +88,8 @@ GPUDVFSController::calculateCRISPDelay(uint64_t tMemory,
         (currentFreqMHz / targetFreqMHz) * T_overlapped);
     uint64_t TLCP = std::max(tMemory, Tcomp_LCP_scaled);
 
-    uint64_t Tcomp_CSP_scaled = std::ceil(
+    uint64_t TCSP = std::ceil(
         (currentFreqMHz / targetFreqMHz) * T_pure_compute);
-    uint64_t TCSP = std::max(T_pure_compute, Tcomp_CSP_scaled);
 
     return TLCP + TCSP;
 }

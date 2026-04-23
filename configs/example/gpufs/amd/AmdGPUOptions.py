@@ -325,7 +325,7 @@ def addAmdGPUOptions(parser):
     parser.add_argument(
         "--gpu-init-perf-level",
         type=int,
-        default=3,
+        default=5,
         choices=[0,1,2,3,4,5,6,7],
         help='''Initial GPU performance level
                 (0=1630MHz, 1=1536MHz, 2=1401MHz,
@@ -336,7 +336,7 @@ def addAmdGPUOptions(parser):
     parser.add_argument(
         "--dvfs-transition-latency",
         type=str,
-        default="1us",
+        default="100ns",
         help="Latency for DVFS transitions",
     )
 
@@ -344,9 +344,9 @@ def addAmdGPUOptions(parser):
         "--dvfs-eval-window",
         type=str, 
         default='100ms',
-        choices=['100ms', '1ms', '100us', '10us'],
+        choices=['100ms', '1ms', '100us', '10us', '1us', '100ns'],
         help='''CRISP DVFS Eval window size
-                (100ms, 1ms, 100us, 10us)''',
+                (100ms, 1ms, 100us, 10us, 1us, 100ns)''',
     )
 
     parser.add_argument(

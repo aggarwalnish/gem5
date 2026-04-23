@@ -384,7 +384,8 @@ ComputeUnit::ComputeUnit(const Params &p)
     tMemory = 0;
     tStallLCP = 0;
     tIdle = 0;
-    crispLastNumInstrExecuted = 0;
+    crispInstrExecuted = 0;
+    crispLastWindowInstrExecuted = 0;
     crispWindowIpc = 0.0;
     crispThreshold = 0.5f;
     crispIdleThreshold = 0.8f;
@@ -1101,10 +1102,10 @@ ComputeUnit::crispWindowEval(Tick curTick)
     uint64_t T_active = T_total - tIdle;
     uint64_t T_overlapped_compute = tMemory - tStallLCP;
     uint64_t T_pure_compute = T_active - tMemory;
-    uint64_t currentNumInstrExecuted = stats.numInstrExecuted.value();
+    uint64_t currentNumInstrExecuted = crispInstrExecuted;
     uint64_t windowNumInstrExecuted =
-        currentNumInstrExecuted - crispLastNumInstrExecuted;
-    crispLastNumInstrExecuted = currentNumInstrExecuted;
+        currentNumInstrExecuted - crispLastWindowInstrExecuted;
+    crispLastWindowInstrExecuted = currentNumInstrExecuted;
     crispWindowIpc = T_total > 0 ?
         static_cast<double>(windowNumInstrExecuted) / T_total : 0.0;
 

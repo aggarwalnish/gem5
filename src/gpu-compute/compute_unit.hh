@@ -1008,7 +1008,8 @@ class ComputeUnit : public ClockedObject
     }
     GPUDVFSController *dvfsController = nullptr;
     uint64_t crispWindowDurationCycles = UINT64_MAX;
-    uint64_t crispLastNumInstrExecuted = 0;
+    uint64_t crispInstrExecuted = 0;
+    uint64_t crispLastWindowInstrExecuted = 0;
     double crispWindowIpc = 0.0;
     // CRISP DVFS counters
     static constexpr int CrispMaxComputeUnits = 10;
@@ -1131,6 +1132,7 @@ class ComputeUnit : public ClockedObject
     void crispIncL2LoadMiss() { crispL2LoadMiss++; }
     void crispIncVmemMissCount() { crispVmemMissCount++; }
     void crispIncSmemMissCount() { crispSmemMissCount++; }
+    void crispIncInstrExecuted() { crispInstrExecuted++; }
     int activeWaves;
 
     struct ComputeUnitStats : public statistics::Group

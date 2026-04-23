@@ -79,18 +79,16 @@ class ComputeUnitPowerOn(MathExprPowerModel):
     def __init__(self, cu_stats_path, **kwargs):
         super().__init__(**kwargs)
         clean_path = cu_stats_path
-        # Power model based on voltage squared, CRISP-window IPC, and
-        # clock period.
-        # This captures both voltage and frequency effects on dynamic power
-        # Using parentheses for clarity and proper operator precedence
-        self.dyn = "(voltage * voltage) * ({}.windowIpc / clock_period) * 1000000".format(
-            clean_path
+        t_ref = 879
+        self.dyn = (
+            "1.5 * voltage * voltage * "
+            f"{clean_path}.windowIpc * ({t_ref} / clock_period)"
         )
         with open("/tmp/cu_power_expr.txt", "a") as f:
             f.write(
                 f"CU Power: stats_path={clean_path}, dyn={self.dyn}\n"
             )
-        self.st = "0.5 * temp"
+        self.st = "0.5 * voltage"
 
 class ComputeUnitPowerModel(PowerModel):
     def __init__(self, cu_path, subsystem, **kwargs):

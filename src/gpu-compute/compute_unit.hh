@@ -1060,10 +1060,22 @@ class ComputeUnit : public ClockedObject
     uint64_t crispL2LoadMiss;
     uint64_t crispVmemMissCount;
     uint64_t crispSmemMissCount;
+    uint64_t crispDbgReturnUpdateCount;
+    uint64_t crispDbgReturnRaiseCount;
+    uint64_t crispDbgReturnRaiseCycles;
+    uint64_t crispDbgReturnOverrunCount;
+    uint64_t crispDbgLabelMemIncCount;
+    uint64_t crispDbgLabelOverrunCount;
+    uint64_t crispDbgBoundaryRaiseCount;
+    uint64_t crispDbgBoundaryRaiseCycles;
+    uint64_t crispDbgBoundaryOverrunCount;
+    uint64_t crispDbgSameTickReturnAndLabelCount;
+    Tick crispDbgLastReturnUpdateTick;
 
     // Per-address miss tracking
     std::unordered_map<Addr, uint64_t> crispTs;
     std::unordered_map<Addr, uint64_t> crispTick;
+    std::unordered_map<Addr, Tick> crispTickClockPeriod;
 
     /**
      * TODO: Update these comments once the pipe stage interface has

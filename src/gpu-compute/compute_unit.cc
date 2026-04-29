@@ -423,6 +423,17 @@ ComputeUnit::ComputeUnit(const Params &p)
     crispL2LoadMiss = 0;
     crispVmemMissCount = 0;
     crispSmemMissCount = 0;
+    crispDbgReturnUpdateCount = 0;
+    crispDbgReturnRaiseCount = 0;
+    crispDbgReturnRaiseCycles = 0;
+    crispDbgReturnOverrunCount = 0;
+    crispDbgLabelMemIncCount = 0;
+    crispDbgLabelOverrunCount = 0;
+    crispDbgBoundaryRaiseCount = 0;
+    crispDbgBoundaryRaiseCycles = 0;
+    crispDbgBoundaryOverrunCount = 0;
+    crispDbgSameTickReturnAndLabelCount = 0;
+    crispDbgLastReturnUpdateTick = 0;
     crispOutstandingFetchMisses = 0;
     std::fill_n(crispIssuedHistogram, CrispMaxComputeUnits, 0);
     std::fill_n(crispUtilHistogram, 10, 0);
@@ -1081,6 +1092,12 @@ ComputeUnit::init()
 void
 ComputeUnit::crispWindowEval(Tick curTick)
 {
+    uint64_t startTMemory = tMemory;
+    uint64_t startActiveBudget =
+        crispWindowDurationCycles > tIdle ?
+        crispWindowDurationCycles - tIdle : 0;
+    Tick currentClockPeriod = clockPeriod();
+
     DPRINTF(CRISPdvfs,
         "[CU%d] crispWindowEval START: "
         "tick=%llu tMemory=%llu "
@@ -1090,12 +1107,87 @@ ComputeUnit::crispWindowEval(Tick curTick)
         crispTick.size(),
         crispCycleCount);
 
+    if (startTMemory > startActiveBudget) {
+        DPRINTF(CRISPdvfs,
+            "[CU%d] CRISP DEBUG overrun_at_window_start: "
+            "tick=%llu startTMemory=%llu startActiveBudget=%llu "
+            "crispCycleCount=%llu windowCycles=%llu tIdle=%llu "
+            "returnUpdates=%llu returnRaises=%llu returnRaiseCycles=%llu "
+            "labelMemIncs=%llu labelOverruns=%llu "
+            "sameTickReturnAndLabel=%llu currentClock=%llu\n",
+            cu_id, curTick,
+            startTMemory,
+            startActiveBudget,
+            crispCycleCount,
+            crispWindowDurationCycles,
+            tIdle,
+            crispDbgReturnUpdateCount,
+            crispDbgReturnRaiseCount,
+            crispDbgReturnRaiseCycles,
+            crispDbgLabelMemIncCount,
+            crispDbgLabelOverrunCount,
+            crispDbgSameTickReturnAndLabelCount,
+            currentClockPeriod);
+    }
+
     for (auto &entry : crispTick) {
         Addr lineAddr = entry.first;
-        uint64_t elapsed = (curTick - entry.second) / clockPeriod();
-        tMemory = std::max(tMemory, crispTs[lineAddr] + elapsed);
+        Tick anchorClockPeriod = currentClockPeriod;
+        auto clkIt = crispTickClockPeriod.find(lineAddr);
+        if (clkIt != crispTickClockPeriod.end()) {
+            anchorClockPeriod = clkIt->second;
+        }
+        uint64_t elapsedCurrent =
+            (curTick - entry.second) / currentClockPeriod;
+        uint64_t elapsedAnchor =
+            (curTick - entry.second) / anchorClockPeriod;
+        uint64_t oldTMemory = tMemory;
+        uint64_t candidate = crispTs[lineAddr] + elapsedCurrent;
+        tMemory = std::max(tMemory, candidate);
+        if (anchorClockPeriod != currentClockPeriod) {
+            DPRINTF(CRISPdvfs,
+                "[CU%d] CRISP DEBUG boundary_clock_shift: "
+                "tick=%llu line=0x%llx anchorTick=%llu "
+                "anchorClock=%llu currentClock=%llu "
+                "elapsedAnchor=%llu elapsedCurrent=%llu "
+                "crispTs=%llu oldTMemory=%llu newTMemory=%llu\n",
+                cu_id, curTick,
+                (unsigned long long)lineAddr,
+                (unsigned long long)entry.second,
+                anchorClockPeriod,
+                currentClockPeriod,
+                elapsedAnchor,
+                elapsedCurrent,
+                crispTs[lineAddr],
+                oldTMemory,
+                tMemory);
+        }
+        if (tMemory > oldTMemory) {
+            crispDbgBoundaryRaiseCount++;
+            crispDbgBoundaryRaiseCycles += tMemory - oldTMemory;
+        }
+        if (tMemory > startActiveBudget) {
+            crispDbgBoundaryOverrunCount++;
+            DPRINTF(CRISPdvfs,
+                "[CU%d] CRISP DEBUG overrun_after_boundary_rebase: "
+                "tick=%llu line=0x%llx oldTMemory=%llu newTMemory=%llu "
+                "startActiveBudget=%llu crispTs=%llu "
+                "elapsedCurrent=%llu elapsedAnchor=%llu "
+                "anchorClock=%llu currentClock=%llu\n",
+                cu_id, curTick,
+                (unsigned long long)lineAddr,
+                oldTMemory,
+                tMemory,
+                startActiveBudget,
+                crispTs[lineAddr],
+                elapsedCurrent,
+                elapsedAnchor,
+                anchorClockPeriod,
+                currentClockPeriod);
+        }
         entry.second = curTick;
         crispTs[lineAddr] = 0;
+        crispTickClockPeriod[lineAddr] = currentClockPeriod;
     }
 
     uint64_t T_total = crispWindowDurationCycles;
@@ -1133,6 +1225,37 @@ ComputeUnit::crispWindowEval(Tick curTick)
             (unsigned long long)T_overlapped_compute,
             (unsigned long long)T_pure_compute,
             crispWindowIpc);
+
+    if (tMemory > T_active) {
+        DPRINTF(CRISPdvfs,
+            "[CU%d] CRISP DEBUG final_overrun_summary: "
+            "tick=%llu startTMemory=%llu finalTMemory=%llu "
+            "T_active=%llu T_total=%llu tIdle=%llu "
+            "returnUpdates=%llu returnRaises=%llu returnRaiseCycles=%llu "
+            "returnOverruns=%llu labelMemIncs=%llu labelOverruns=%llu "
+            "sameTickReturnAndLabel=%llu "
+            "boundaryRaises=%llu boundaryRaiseCycles=%llu "
+            "boundaryOverruns=%llu outstandingMisses=%llu "
+            "currentClock=%llu\n",
+            cu_id, curTick,
+            startTMemory,
+            tMemory,
+            T_active,
+            T_total,
+            tIdle,
+            crispDbgReturnUpdateCount,
+            crispDbgReturnRaiseCount,
+            crispDbgReturnRaiseCycles,
+            crispDbgReturnOverrunCount,
+            crispDbgLabelMemIncCount,
+            crispDbgLabelOverrunCount,
+            crispDbgSameTickReturnAndLabelCount,
+            crispDbgBoundaryRaiseCount,
+            crispDbgBoundaryRaiseCycles,
+            crispDbgBoundaryOverrunCount,
+            (unsigned long long)crispTick.size(),
+            currentClockPeriod);
+    }
 
     float avg_issued = crispActiveCycleCount > 0 ?
         (float)crispIssuedSum / crispActiveCycleCount : 0.0f;
@@ -1375,6 +1498,17 @@ ComputeUnit::crispWindowEval(Tick curTick)
     crispL2LoadMiss = 0;
     crispVmemMissCount = 0;
     crispSmemMissCount = 0;
+    crispDbgReturnUpdateCount = 0;
+    crispDbgReturnRaiseCount = 0;
+    crispDbgReturnRaiseCycles = 0;
+    crispDbgReturnOverrunCount = 0;
+    crispDbgLabelMemIncCount = 0;
+    crispDbgLabelOverrunCount = 0;
+    crispDbgBoundaryRaiseCount = 0;
+    crispDbgBoundaryRaiseCycles = 0;
+    crispDbgBoundaryOverrunCount = 0;
+    crispDbgSameTickReturnAndLabelCount = 0;
+    crispDbgLastReturnUpdateTick = 0;
     //crispOutstandingFetchMisses = 0;
     std::fill_n(crispIssuedHistogram, CrispMaxComputeUnits, 0);
     std::fill_n(crispUtilHistogram, 10, 0);
@@ -1398,6 +1532,7 @@ ComputeUnit::crispClearOutstandingMisses()
     crispOutstandingFetchMisses = 0;
     crispTick.clear();
     crispTs.clear();
+    crispTickClockPeriod.clear();
 }
 
 void
@@ -1417,6 +1552,7 @@ ComputeUnit::crispRecordMiss(Addr addr)
     if (any_active) {
         crispTick[lineAddr] = curTick();
         crispTs[lineAddr] = tMemory;
+        crispTickClockPeriod[lineAddr] = clockPeriod();
     }
 
     DPRINTF(CRISPdvfs,
@@ -1429,6 +1565,20 @@ ComputeUnit::crispRecordMiss(Addr addr)
         tMemory,
         any_active ? crispTs[crispLineAddr(addr)] : 0,
         (unsigned long long)crispTick.size());
+
+    if (any_active) {
+        DPRINTF(CRISPdvfs,
+            "[CU%d] CRISP DEBUG miss_anchor: "
+            "tick=%llu addr=0x%llx line=0x%llx "
+            "anchorClock=%llu crispCycleCount=%llu "
+            "windowCycles=%llu crispTs=%llu\n",
+            cu_id, curTick(), addr,
+            (unsigned long long)lineAddr,
+            clockPeriod(),
+            crispCycleCount,
+            crispWindowDurationCycles,
+            crispTs[lineAddr]);
+    }
 }
 
 void
@@ -1438,8 +1588,16 @@ ComputeUnit::crispRecordReturn(Addr addr)
     if (!crispTick.count(lineAddr)) {
         return;
     }
+    Tick currentClockPeriod = clockPeriod();
+    Tick anchorClockPeriod = currentClockPeriod;
+    auto clkIt = crispTickClockPeriod.find(lineAddr);
+    if (clkIt != crispTickClockPeriod.end()) {
+        anchorClockPeriod = clkIt->second;
+    }
     uint64_t latency_cycles =
-        (curTick() - crispTick[lineAddr]) / clockPeriod();
+        (curTick() - crispTick[lineAddr]) / currentClockPeriod;
+    uint64_t latency_cycles_anchor =
+        (curTick() - crispTick[lineAddr]) / anchorClockPeriod;
     bool any_active = false;
     for (int i = 0; i < numVectorALUs && !any_active; i++) {
         for (int j = 0; j < shader->n_wf; j++) {
@@ -1467,11 +1625,62 @@ ComputeUnit::crispRecordReturn(Addr addr)
                 + latency_cycles) :
             tMemory);
 
+    if (anchorClockPeriod != currentClockPeriod) {
+        DPRINTF(CRISPdvfs,
+            "[CU%d] CRISP DEBUG return_clock_shift: "
+            "tick=%llu addr=0x%llx line=0x%llx "
+            "anchorTick=%llu anchorClock=%llu currentClock=%llu "
+            "latencyCyclesAnchor=%llu latencyCyclesCurrent=%llu "
+            "crispTs=%llu tMemory_before=%llu\n",
+            cu_id, curTick(), addr,
+            (unsigned long long)lineAddr,
+            (unsigned long long)crispTick[lineAddr],
+            anchorClockPeriod,
+            currentClockPeriod,
+            latency_cycles_anchor,
+            latency_cycles,
+            crispTs[lineAddr],
+            tMemory);
+    }
+
     if (any_active) {
+        uint64_t oldTMemory = tMemory;
         tMemory = std::max(tMemory, crispTs[lineAddr] + latency_cycles);
+        crispDbgReturnUpdateCount++;
+        crispDbgLastReturnUpdateTick = curTick();
+        if (tMemory > oldTMemory) {
+            crispDbgReturnRaiseCount++;
+            crispDbgReturnRaiseCycles += tMemory - oldTMemory;
+        }
+        uint64_t currentCycleBudget = crispCycleCount + 1;
+        if (tMemory > currentCycleBudget ||
+            tMemory > crispWindowDurationCycles) {
+            crispDbgReturnOverrunCount++;
+            DPRINTF(CRISPdvfs,
+                "[CU%d] CRISP DEBUG overrun_after_return: "
+                "tick=%llu addr=0x%llx line=0x%llx "
+                "oldTMemory=%llu newTMemory=%llu "
+                "crispCycleCount=%llu currentCycleBudget=%llu "
+                "windowCycles=%llu crispTs=%llu "
+                "anchorClock=%llu currentClock=%llu "
+                "latencyCyclesAnchor=%llu latencyCyclesCurrent=%llu\n",
+                cu_id, curTick(), addr,
+                (unsigned long long)lineAddr,
+                oldTMemory,
+                tMemory,
+                crispCycleCount,
+                currentCycleBudget,
+                crispWindowDurationCycles,
+                crispTs[lineAddr],
+                anchorClockPeriod,
+                currentClockPeriod,
+                latency_cycles_anchor,
+                latency_cycles);
+        }
     }
     crispTick.erase(lineAddr);
     crispTs.erase(lineAddr);
+    crispTickClockPeriod.erase(lineAddr);
 }
 
 void
@@ -1697,10 +1906,74 @@ ComputeUnit::crispLabelCycle()
         if (!compute_issued && vmcnt_stall_exists && !crispTick.empty()) {
             tMemory++;
             tStallLCP++;
+            crispDbgLabelMemIncCount++;
+            if (crispDbgLastReturnUpdateTick == curTick()) {
+                crispDbgSameTickReturnAndLabelCount++;
+                DPRINTF(CRISPdvfs,
+                    "[CU%d] CRISP DEBUG same_tick_return_and_label: "
+                    "tick=%llu origin=vmcnt_stall tMemory=%llu "
+                    "tStallLCP=%llu crispCycleCount=%llu "
+                    "windowCycles=%llu\n",
+                    cu_id, curTick(),
+                    tMemory,
+                    tStallLCP,
+                    crispCycleCount,
+                    crispWindowDurationCycles);
+            }
+            uint64_t currentCycleBudget = crispCycleCount + 1;
+            if (tMemory > currentCycleBudget ||
+                tMemory > crispWindowDurationCycles) {
+                crispDbgLabelOverrunCount++;
+                DPRINTF(CRISPdvfs,
+                    "[CU%d] CRISP DEBUG overrun_after_label: "
+                    "tick=%llu origin=vmcnt_stall "
+                    "tMemory=%llu tStallLCP=%llu "
+                    "crispCycleCount=%llu currentCycleBudget=%llu "
+                    "windowCycles=%llu outstandingMisses=%llu\n",
+                    cu_id, curTick(),
+                    tMemory,
+                    tStallLCP,
+                    crispCycleCount,
+                    currentCycleBudget,
+                    crispWindowDurationCycles,
+                    (unsigned long long)crispTick.size());
+            }
         } else if (!compute_issued && ib_empty_stall &&
                    crispOutstandingFetchMisses > 0) {
             tMemory++;
             tStallLCP++;
+            crispDbgLabelMemIncCount++;
+            if (crispDbgLastReturnUpdateTick == curTick()) {
+                crispDbgSameTickReturnAndLabelCount++;
+                DPRINTF(CRISPdvfs,
+                    "[CU%d] CRISP DEBUG same_tick_return_and_label: "
+                    "tick=%llu origin=fetch_stall tMemory=%llu "
+                    "tStallLCP=%llu crispCycleCount=%llu "
+                    "windowCycles=%llu\n",
+                    cu_id, curTick(),
+                    tMemory,
+                    tStallLCP,
+                    crispCycleCount,
+                    crispWindowDurationCycles);
+            }
+            uint64_t currentCycleBudget = crispCycleCount + 1;
+            if (tMemory > currentCycleBudget ||
+                tMemory > crispWindowDurationCycles) {
+                crispDbgLabelOverrunCount++;
+                DPRINTF(CRISPdvfs,
+                    "[CU%d] CRISP DEBUG overrun_after_label: "
+                    "tick=%llu origin=fetch_stall "
+                    "tMemory=%llu tStallLCP=%llu "
+                    "crispCycleCount=%llu currentCycleBudget=%llu "
+                    "windowCycles=%llu outstandingMisses=%llu\n",
+                    cu_id, curTick(),
+                    tMemory,
+                    tStallLCP,
+                    crispCycleCount,
+                    currentCycleBudget,
+                    crispWindowDurationCycles,
+                    (unsigned long long)crispTick.size());
+            }
         }
 
         // Update compute issued stats

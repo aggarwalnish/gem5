@@ -433,7 +433,9 @@ ComputeUnit::ComputeUnit(const Params &p)
     crispDbgBoundaryRaiseCycles = 0;
     crispDbgBoundaryOverrunCount = 0;
     crispDbgSameTickReturnAndLabelCount = 0;
-    crispDbgLastReturnUpdateTick = 0;
+    crispDbgLastReturnUpdateTick = MaxTick;
+    crispLastReturnRaiseTick = MaxTick;
+    crispLastTransitionCompleteTick = MaxTick;
     crispOutstandingFetchMisses = 0;
     std::fill_n(crispIssuedHistogram, CrispMaxComputeUnits, 0);
     std::fill_n(crispUtilHistogram, 10, 0);
@@ -1137,12 +1139,14 @@ ComputeUnit::crispWindowEval(Tick curTick)
         if (clkIt != crispTickClockPeriod.end()) {
             anchorClockPeriod = clkIt->second;
         }
+        uint64_t elapsedCorrected =
+            crispElapsedCycles(entry.second, anchorClockPeriod, curTick);
         uint64_t elapsedCurrent =
             (curTick - entry.second) / currentClockPeriod;
         uint64_t elapsedAnchor =
             (curTick - entry.second) / anchorClockPeriod;
         uint64_t oldTMemory = tMemory;
-        uint64_t candidate = crispTs[lineAddr] + elapsedCurrent;
+        uint64_t candidate = crispTs[lineAddr] + elapsedCorrected;
         tMemory = std::max(tMemory, candidate);
         if (anchorClockPeriod != currentClockPeriod) {
             DPRINTF(CRISPdvfs,
@@ -1150,6 +1154,7 @@ ComputeUnit::crispWindowEval(Tick curTick)
                 "tick=%llu line=0x%llx anchorTick=%llu "
                 "anchorClock=%llu currentClock=%llu "
                 "elapsedAnchor=%llu elapsedCurrent=%llu "
+                "elapsedCorrected=%llu "
                 "crispTs=%llu oldTMemory=%llu newTMemory=%llu\n",
                 cu_id, curTick,
                 (unsigned long long)lineAddr,
@@ -1158,6 +1163,7 @@ ComputeUnit::crispWindowEval(Tick curTick)
                 currentClockPeriod,
                 elapsedAnchor,
                 elapsedCurrent,
+                elapsedCorrected,
                 crispTs[lineAddr],
                 oldTMemory,
                 tMemory);
@@ -1173,6 +1179,7 @@ ComputeUnit::crispWindowEval(Tick curTick)
                 "tick=%llu line=0x%llx oldTMemory=%llu newTMemory=%llu "
                 "startActiveBudget=%llu crispTs=%llu "
                 "elapsedCurrent=%llu elapsedAnchor=%llu "
+                "elapsedCorrected=%llu "
                 "anchorClock=%llu currentClock=%llu\n",
                 cu_id, curTick,
                 (unsigned long long)lineAddr,
@@ -1182,6 +1189,7 @@ ComputeUnit::crispWindowEval(Tick curTick)
                 crispTs[lineAddr],
                 elapsedCurrent,
                 elapsedAnchor,
+                elapsedCorrected,
                 anchorClockPeriod,
                 currentClockPeriod);
         }
@@ -1508,7 +1516,8 @@ ComputeUnit::crispWindowEval(Tick curTick)
     crispDbgBoundaryRaiseCycles = 0;
     crispDbgBoundaryOverrunCount = 0;
     crispDbgSameTickReturnAndLabelCount = 0;
-    crispDbgLastReturnUpdateTick = 0;
+    crispDbgLastReturnUpdateTick = MaxTick;
+    crispLastReturnRaiseTick = MaxTick;
     //crispOutstandingFetchMisses = 0;
     std::fill_n(crispIssuedHistogram, CrispMaxComputeUnits, 0);
     std::fill_n(crispUtilHistogram, 10, 0);
@@ -1533,6 +1542,35 @@ ComputeUnit::crispClearOutstandingMisses()
     crispTick.clear();
     crispTs.clear();
     crispTickClockPeriod.clear();
+}
+
+void
+ComputeUnit::noteCrispTransition(Tick when)
+{
+    crispLastTransitionCompleteTick = when;
+}
+
+uint64_t
+ComputeUnit::crispElapsedCycles(Tick anchorTick, Tick anchorClockPeriod,
+                                Tick endTick) const
+{
+    assert(endTick >= anchorTick);
+
+    if (anchorTick == endTick) {
+        return 0;
+    }
+
+    Tick currentClockPeriod = clockPeriod();
+    if (crispLastTransitionCompleteTick == MaxTick ||
+        anchorClockPeriod == currentClockPeriod ||
+        crispLastTransitionCompleteTick < anchorTick ||
+        crispLastTransitionCompleteTick > endTick) {
+        return (endTick - anchorTick) / anchorClockPeriod;
+    }
+
+    return (crispLastTransitionCompleteTick - anchorTick) /
+               anchorClockPeriod +
+           (endTick - crispLastTransitionCompleteTick) / currentClockPeriod;
 }
 
 void
@@ -1588,6 +1626,7 @@ ComputeUnit::crispRecordReturn(Addr addr)
     if (!crispTick.count(lineAddr)) {
         return;
     }
+    Tick anchorTick = crispTick[lineAddr];
     Tick currentClockPeriod = clockPeriod();
     Tick anchorClockPeriod = currentClockPeriod;
     auto clkIt = crispTickClockPeriod.find(lineAddr);
@@ -1595,9 +1634,11 @@ ComputeUnit::crispRecordReturn(Addr addr)
         anchorClockPeriod = clkIt->second;
     }
     uint64_t latency_cycles =
-        (curTick() - crispTick[lineAddr]) / currentClockPeriod;
+        crispElapsedCycles(anchorTick, anchorClockPeriod, curTick());
     uint64_t latency_cycles_anchor =
-        (curTick() - crispTick[lineAddr]) / anchorClockPeriod;
+        (curTick() - anchorTick) / anchorClockPeriod;
+    uint64_t latency_cycles_current =
+        (curTick() - anchorTick) / currentClockPeriod;
     bool any_active = false;
     for (int i = 0; i < numVectorALUs && !any_active; i++) {
         for (int j = 0; j < shader->n_wf; j++) {
@@ -1631,13 +1672,15 @@ ComputeUnit::crispRecordReturn(Addr addr)
             "tick=%llu addr=0x%llx line=0x%llx "
             "anchorTick=%llu anchorClock=%llu currentClock=%llu "
             "latencyCyclesAnchor=%llu latencyCyclesCurrent=%llu "
+            "latencyCyclesCorrected=%llu "
             "crispTs=%llu tMemory_before=%llu\n",
             cu_id, curTick(), addr,
             (unsigned long long)lineAddr,
-            (unsigned long long)crispTick[lineAddr],
+            (unsigned long long)anchorTick,
             anchorClockPeriod,
             currentClockPeriod,
             latency_cycles_anchor,
+            latency_cycles_current,
             latency_cycles,
             crispTs[lineAddr],
             tMemory);
@@ -1651,6 +1694,7 @@ ComputeUnit::crispRecordReturn(Addr addr)
         if (tMemory > oldTMemory) {
             crispDbgReturnRaiseCount++;
             crispDbgReturnRaiseCycles += tMemory - oldTMemory;
+            crispLastReturnRaiseTick = curTick();
         }
         uint64_t currentCycleBudget = crispCycleCount + 1;
         if (tMemory > currentCycleBudget ||
@@ -1663,7 +1707,8 @@ ComputeUnit::crispRecordReturn(Addr addr)
                 "crispCycleCount=%llu currentCycleBudget=%llu "
                 "windowCycles=%llu crispTs=%llu "
                 "anchorClock=%llu currentClock=%llu "
-                "latencyCyclesAnchor=%llu latencyCyclesCurrent=%llu\n",
+                "latencyCyclesAnchor=%llu latencyCyclesCurrent=%llu "
+                "latencyCyclesCorrected=%llu\n",
                 cu_id, curTick(), addr,
                 (unsigned long long)lineAddr,
                 oldTMemory,
@@ -1675,6 +1720,7 @@ ComputeUnit::crispRecordReturn(Addr addr)
                 anchorClockPeriod,
                 currentClockPeriod,
                 latency_cycles_anchor,
+                latency_cycles_current,
                 latency_cycles);
         }
     }
@@ -1904,7 +1950,10 @@ ComputeUnit::crispLabelCycle()
 
         // Label the cycle
         if (!compute_issued && vmcnt_stall_exists && !crispTick.empty()) {
-            tMemory++;
+            uint64_t currentCycleBudget = crispCycleCount + 1;
+            if (tMemory < currentCycleBudget) {
+                tMemory++;
+            }
             tStallLCP++;
             crispDbgLabelMemIncCount++;
             if (crispDbgLastReturnUpdateTick == curTick()) {
@@ -1920,7 +1969,6 @@ ComputeUnit::crispLabelCycle()
                     crispCycleCount,
                     crispWindowDurationCycles);
             }
-            uint64_t currentCycleBudget = crispCycleCount + 1;
             if (tMemory > currentCycleBudget ||
                 tMemory > crispWindowDurationCycles) {
                 crispDbgLabelOverrunCount++;
@@ -1940,7 +1988,10 @@ ComputeUnit::crispLabelCycle()
             }
         } else if (!compute_issued && ib_empty_stall &&
                    crispOutstandingFetchMisses > 0) {
-            tMemory++;
+            uint64_t currentCycleBudget = crispCycleCount + 1;
+            if (tMemory < currentCycleBudget) {
+                tMemory++;
+            }
             tStallLCP++;
             crispDbgLabelMemIncCount++;
             if (crispDbgLastReturnUpdateTick == curTick()) {
@@ -1956,7 +2007,6 @@ ComputeUnit::crispLabelCycle()
                     crispCycleCount,
                     crispWindowDurationCycles);
             }
-            uint64_t currentCycleBudget = crispCycleCount + 1;
             if (tMemory > currentCycleBudget ||
                 tMemory > crispWindowDurationCycles) {
                 crispDbgLabelOverrunCount++;

@@ -1071,6 +1071,8 @@ class ComputeUnit : public ClockedObject
     uint64_t crispDbgBoundaryOverrunCount;
     uint64_t crispDbgSameTickReturnAndLabelCount;
     Tick crispDbgLastReturnUpdateTick;
+    Tick crispLastReturnRaiseTick;
+    Tick crispLastTransitionCompleteTick;
 
     // Per-address miss tracking
     std::unordered_map<Addr, uint64_t> crispTs;
@@ -1126,6 +1128,9 @@ class ComputeUnit : public ClockedObject
     // between the first and last cache block arrival times.
     std::unordered_map<GPUDynInstPtr, Tick> headTailMap;
 
+    uint64_t crispElapsedCycles(Tick anchorTick, Tick anchorClockPeriod,
+                                Tick endTick) const;
+
   public:
     void updateInstStats(GPUDynInstPtr gpuDynInst);
     void attachDVFSController(GPUDVFSController *ctrl, Tick windowTicks);
@@ -1134,6 +1139,7 @@ class ComputeUnit : public ClockedObject
     void crispLabelCycle();
     void crispRecordMiss(Addr addr);
     void crispRecordReturn(Addr addr);
+    void noteCrispTransition(Tick when);
     uint64_t crispOutstandingFetchMisses;
     void crispClearOutstandingMisses();
     void crispIncLoadIssued() { crispLoadIssued++; }

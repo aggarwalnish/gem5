@@ -257,6 +257,7 @@ GPUDVFSController::adjustFrequency(int newLevel)
 void
 GPUDVFSController::onFrequencyTransitionComplete()
 {
+    computeUnit->noteCrispTransition(curTick());
     computeUnit->recomputeWindowCycles();
 }
 

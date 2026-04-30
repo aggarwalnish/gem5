@@ -1868,8 +1868,25 @@ ComputeUnit::crispLabelCycle()
             }
         }
         crispCaseHistogram[crisp_case - 1]++;
+
+        DPRINTF(CRISPdvfs,
+            "[CU%d] CRISP Cycle: "
+            "tick=%llu cycle=%llu/%llu "
+            "case=C%d\n",
+            cu_id, curTick(),
+            (unsigned long long)(crispCycleCount + 1),
+            (unsigned long long)crispWindowDurationCycles,
+            crisp_case);
     } else {
         crispCaseHistogram[8]++;
+
+        DPRINTF(CRISPdvfs,
+            "[CU%d] CRISP Cycle: "
+            "tick=%llu cycle=%llu/%llu "
+            "case=C9\n",
+            cu_id, curTick(),
+            (unsigned long long)(crispCycleCount + 1),
+            (unsigned long long)crispWindowDurationCycles);
     }
 
     // Window evaluation

@@ -114,7 +114,7 @@ GPUDVFSController::calculateCRISPEDP(uint64_t tMemory,
                                           T_pure_compute, currentFreqMHz,
                                           targetFreqMHz);
 
-    uint64_t Tcurrent = T_active;
+    // uint64_t Tcurrent = T_active;
 
     double staticPowerScaled = staticPower * (voltageTarget / voltageCurrent);
     
@@ -122,12 +122,12 @@ GPUDVFSController::calculateCRISPEDP(uint64_t tMemory,
     
     double Tdelay_s = static_cast<double>(Tdelay) *
         computeUnit->clockPeriod() * 1e-12;
-    double Tcurrent_s = static_cast<double>(Tcurrent) *
-        computeUnit->clockPeriod() * 1e-12;
+    // double Tcurrent_s = static_cast<double>(Tcurrent) *
+    //     computeUnit->clockPeriod() * 1e-12;
     
     double Estatic = staticPowerScaled * Tdelay_s;
     
-    double Edynamic = dynamicPowerScaled * Tcurrent_s;
+    double Edynamic = dynamicPowerScaled * Tdelay_s;
     
     double Etotal = Estatic + Edynamic;
     

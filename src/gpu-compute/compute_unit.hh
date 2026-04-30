@@ -1060,10 +1060,12 @@ class ComputeUnit : public ClockedObject
     uint64_t crispL2LoadMiss;
     uint64_t crispVmemMissCount;
     uint64_t crispSmemMissCount;
+    Tick crispLastTransitionCompleteTick;
 
     // Per-address miss tracking
     std::unordered_map<Addr, uint64_t> crispTs;
     std::unordered_map<Addr, uint64_t> crispTick;
+    std::unordered_map<Addr, Tick> crispTickClockPeriod;
 
     /**
      * TODO: Update these comments once the pipe stage interface has
@@ -1114,6 +1116,9 @@ class ComputeUnit : public ClockedObject
     // between the first and last cache block arrival times.
     std::unordered_map<GPUDynInstPtr, Tick> headTailMap;
 
+    uint64_t crispElapsedCycles(Tick anchorTick, Tick anchorClockPeriod,
+                                Tick endTick) const;
+
   public:
     void updateInstStats(GPUDynInstPtr gpuDynInst);
     void attachDVFSController(GPUDVFSController *ctrl, Tick windowTicks);
@@ -1122,6 +1127,7 @@ class ComputeUnit : public ClockedObject
     void crispLabelCycle();
     void crispRecordMiss(Addr addr);
     void crispRecordReturn(Addr addr);
+    void noteCrispTransition(Tick when);
     uint64_t crispOutstandingFetchMisses;
     void crispClearOutstandingMisses();
     void crispIncLoadIssued() { crispLoadIssued++; }

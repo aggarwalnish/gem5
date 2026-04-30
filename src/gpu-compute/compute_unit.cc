@@ -423,6 +423,7 @@ ComputeUnit::ComputeUnit(const Params &p)
     crispL2LoadMiss = 0;
     crispVmemMissCount = 0;
     crispSmemMissCount = 0;
+    crispLastTransitionCompleteTick = MaxTick;
     crispOutstandingFetchMisses = 0;
     std::fill_n(crispIssuedHistogram, CrispMaxComputeUnits, 0);
     std::fill_n(crispUtilHistogram, 10, 0);
@@ -1090,12 +1091,20 @@ ComputeUnit::crispWindowEval(Tick curTick)
         crispTick.size(),
         crispCycleCount);
 
+    Tick currentClockPeriod = clockPeriod();
     for (auto &entry : crispTick) {
         Addr lineAddr = entry.first;
-        uint64_t elapsed = (curTick - entry.second) / clockPeriod();
+        Tick anchorClockPeriod = currentClockPeriod;
+        auto clkIt = crispTickClockPeriod.find(lineAddr);
+        if (clkIt != crispTickClockPeriod.end()) {
+            anchorClockPeriod = clkIt->second;
+        }
+        uint64_t elapsed =
+            crispElapsedCycles(entry.second, anchorClockPeriod, curTick);
         tMemory = std::max(tMemory, crispTs[lineAddr] + elapsed);
         entry.second = curTick;
         crispTs[lineAddr] = 0;
+        crispTickClockPeriod[lineAddr] = currentClockPeriod;
     }
 
     uint64_t T_total = crispWindowDurationCycles;
@@ -1398,6 +1407,36 @@ ComputeUnit::crispClearOutstandingMisses()
     crispOutstandingFetchMisses = 0;
     crispTick.clear();
     crispTs.clear();
+    crispTickClockPeriod.clear();
+}
+
+void
+ComputeUnit::noteCrispTransition(Tick when)
+{
+    crispLastTransitionCompleteTick = when;
+}
+
+uint64_t
+ComputeUnit::crispElapsedCycles(Tick anchorTick, Tick anchorClockPeriod,
+                                Tick endTick) const
+{
+    assert(endTick >= anchorTick);
+
+    if (anchorTick == endTick) {
+        return 0;
+    }
+
+    Tick currentClockPeriod = clockPeriod();
+    if (crispLastTransitionCompleteTick == MaxTick ||
+        anchorClockPeriod == currentClockPeriod ||
+        crispLastTransitionCompleteTick < anchorTick ||
+        crispLastTransitionCompleteTick > endTick) {
+        return (endTick - anchorTick) / anchorClockPeriod;
+    }
+
+    return (crispLastTransitionCompleteTick - anchorTick) /
+               anchorClockPeriod +
+           (endTick - crispLastTransitionCompleteTick) / currentClockPeriod;
 }
 
 void
@@ -1417,6 +1456,7 @@ ComputeUnit::crispRecordMiss(Addr addr)
     if (any_active) {
         crispTick[lineAddr] = curTick();
         crispTs[lineAddr] = tMemory;
+        crispTickClockPeriod[lineAddr] = clockPeriod();
     }
 
     DPRINTF(CRISPdvfs,
@@ -1438,8 +1478,15 @@ ComputeUnit::crispRecordReturn(Addr addr)
     if (!crispTick.count(lineAddr)) {
         return;
     }
+    Tick anchorTick = crispTick[lineAddr];
+    Tick currentClockPeriod = clockPeriod();
+    Tick anchorClockPeriod = currentClockPeriod;
+    auto clkIt = crispTickClockPeriod.find(lineAddr);
+    if (clkIt != crispTickClockPeriod.end()) {
+        anchorClockPeriod = clkIt->second;
+    }
     uint64_t latency_cycles =
-        (curTick() - crispTick[lineAddr]) / clockPeriod();
+        crispElapsedCycles(anchorTick, anchorClockPeriod, curTick());
     bool any_active = false;
     for (int i = 0; i < numVectorALUs && !any_active; i++) {
         for (int j = 0; j < shader->n_wf; j++) {
@@ -1472,6 +1519,7 @@ ComputeUnit::crispRecordReturn(Addr addr)
     }
     crispTick.erase(lineAddr);
     crispTs.erase(lineAddr);
+    crispTickClockPeriod.erase(lineAddr);
 }
 
 void
@@ -1695,11 +1743,17 @@ ComputeUnit::crispLabelCycle()
 
         // Label the cycle
         if (!compute_issued && vmcnt_stall_exists && !crispTick.empty()) {
-            tMemory++;
+            uint64_t currentCycleBudget = crispCycleCount + 1;
+            if (tMemory < currentCycleBudget) {
+                tMemory++;
+            }
             tStallLCP++;
         } else if (!compute_issued && ib_empty_stall &&
                    crispOutstandingFetchMisses > 0) {
-            tMemory++;
+            uint64_t currentCycleBudget = crispCycleCount + 1;
+            if (tMemory < currentCycleBudget) {
+                tMemory++;
+            }
             tStallLCP++;
         }
 
